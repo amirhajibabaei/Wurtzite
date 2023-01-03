@@ -1,6 +1,10 @@
 # +
+import abc
+
 import numpy as np
 from ase import Atoms
+
+from .layers import Hexagonal, HexagonalCC, Shifted
 
 
 class Stack:
@@ -44,3 +48,36 @@ class Stack:
             symbols=self.symbols, positions=self.positions, cell=self.cell, pbc=True
         )
         return atoms
+
+
+class _WurtZite(Stack):
+    def __init__(
+        self, cell_a, cell_z1, cell_z2, nxyz, symbols, vacuum=20.0, surf_z1=None
+    ):
+        nx, ny, nz = nxyz
+        A, B = symbols
+        a, b = self._hexagonal_layers(cell_a, nx, ny)
+        layers = nz * [a, b, b, a]
+        symbols = nz * [A, B, A, B]
+        spacings = (nz * [cell_z1, cell_z2, cell_z1, cell_z2])[:-1]
+        if surf_z1 is not None:
+            spacings[0], spacings[-1] = surf_z1
+        super().__init__(symbols, layers, spacings, vacuum=vacuum)
+
+    @abc.abstractmethod
+    def _hexagonal_layers(self, cell_a, nx, ny):
+        ...
+
+
+class WurtZiteCC(_WurtZite):
+    def _hexagonal_layers(self, cell_a, nx, ny):
+        a = HexagonalCC(cell_a, nx, ny)
+        b = Shifted(a, [0, cell_a / np.sqrt(3)])
+        return a, b
+
+
+class WurtZite(_WurtZite):
+    def _hexagonal_layers(self, cell_a, nx, ny):
+        a = Hexagonal(cell_a, nx, ny)
+        b = Shifted(a, [cell_a, cell_a / np.sqrt(3)])
+        return a, b
