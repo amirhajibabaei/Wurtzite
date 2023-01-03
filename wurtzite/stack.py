@@ -10,14 +10,35 @@ from .layers import Hexagonal, HexagonalCC, Shifted
 class Stack:
     def __init__(self, symbols, layers, spacings, vacuum=20.0):
         assert len(symbols) == len(layers) == len(spacings) + 1
+        assert all([s >= 0 for s in spacings])
         self._symbols = symbols
         self._layers = layers
         self._spacings = spacings
         self._vacuum = vacuum
 
-    def set_layer(self, index, *, symbol=None):
+    def set_layer(self, index, *, symbol=None, spacing=None):
+        assert index >= 0 and index < self.number_of_layers, "index out of range"
         if symbol is not None:
             self._symbols[index] = symbol
+        if spacing is not None:
+            assert index != 0, "spacing can't be defined for the first layer"
+            self._spacings[index - 1] = spacing
+
+    def insert_layer(self, index, symbol, layer, spacing):
+        """
+        spacing is defined as:
+            if index == 0:
+                the spacing between the inserted and the next layer
+            otherwise:
+                the spacing between the inserted and the previous layer
+        """
+        assert index >= 0 and index <= self.number_of_layers, "index out of range"
+        self._symbols.insert(index, symbol)
+        self._layers.insert(index, layer)
+        if index == 0:
+            self._spacings.insert(0, spacing)
+        else:
+            self._spacings.insert(index - 1, spacing)
 
     @property
     def number_of_layers(self):
@@ -75,10 +96,12 @@ class Stack:
     def __repr__(self):
         rep = [f"{self.__class__.__name__}:"]
         spacings = ["", *[f"(+ {delta:0.6f})" for delta in self._spacings]]
-        for layer, symbol, z, delta in zip(
-            self._layers, self._symbols, self._z, spacings
+        for index, (layer, symbol, z, delta) in enumerate(
+            zip(self._layers, self._symbols, self._z, spacings)
         ):
-            rep.append(f"{layer.n:>6} x {symbol:<2} at z = {z:10.6f}  {delta}")
+            rep.append(
+                f"{index:>6} -> {layer.n:>4} x {symbol:<2} at z = {z:10.6f}  {delta}"
+            )
         return "\n".join(rep)
 
 
