@@ -15,6 +15,22 @@ class Stack:
         self._spacings = spacings
         self._vacuum = vacuum
 
+    def set_layer(self, index, *, symbol=None):
+        if symbol is not None:
+            self._symbols[index] = symbol
+
+    @property
+    def number_of_layers(self):
+        return len(self._layers)
+
+    @property
+    def number_of_atoms_in_layers(self):
+        return [layer.n for layer in self._layers]
+
+    @property
+    def number_of_atoms(self):
+        return sum(self.number_of_atoms_in_layers)
+
     @property
     def cell(self):
         cells = [layer.xy_cell() for layer in self._layers]
@@ -23,6 +39,13 @@ class Stack:
         cell_z = sum(self._spacings) + 2 * self._vacuum
         cell = np.r_[cell_xy, [[0, 0, cell_z]]]
         return cell
+
+    @property
+    def _z(self):
+        z = [self._vacuum]
+        for delta in self._spacings:
+            z.append(z[-1] + delta)
+        return z
 
     @property
     def chemical_symbols(self):
@@ -34,12 +57,9 @@ class Stack:
     @property
     def positions(self):
         xy, z = [], []
-        spacings = [*self._spacings, 0]
-        _z = self._vacuum
-        for layer, delta in zip(self._layers, spacings):
+        for layer, _z in zip(self._layers, self._z):
             xy.append(layer.xy_positions())
             z.append(layer.n * [_z])
-            _z += delta
         xyz = np.c_[np.concatenate(xy), np.concatenate(z)]
         return xyz
 
@@ -53,12 +73,12 @@ class Stack:
         return atoms
 
     def __repr__(self):
-        spacings = [*self._spacings, 0]
-        _z = self._vacuum
         rep = [f"{self.__class__.__name__}:"]
-        for layer, symbol, delta in zip(self._layers, self._symbols, spacings):
-            _z += delta
-            rep.append(f"{layer.n:>6} x {symbol:<2} at z = {_z}")
+        spacings = ["", *[f"(+ {delta:0.6f})" for delta in self._spacings]]
+        for layer, symbol, z, delta in zip(
+            self._layers, self._symbols, self._z, spacings
+        ):
+            rep.append(f"{layer.n:>6} x {symbol:<2} at z = {z:10.6f}  {delta}")
         return "\n".join(rep)
 
 
