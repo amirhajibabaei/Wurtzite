@@ -46,7 +46,7 @@ class Stack:
 
     @property
     def number_of_atoms_in_layers(self):
-        return [layer.n for layer in self._layers]
+        return [layer.num_sites for layer in self._layers]
 
     @property
     def number_of_atoms(self):
@@ -72,7 +72,7 @@ class Stack:
     def chemical_symbols(self):
         symbols = []
         for layer, symbol in zip(self._layers, self._symbols):
-            symbols.extend(layer.n * [symbol])
+            symbols.extend(layer.num_sites * [symbol])
         return symbols
 
     @property
@@ -80,7 +80,7 @@ class Stack:
         xy, z = [], []
         for layer, _z in zip(self._layers, self._z):
             xy.append(layer.xy_positions())
-            z.append(layer.n * [_z])
+            z.append(layer.num_sites * [_z])
         xyz = np.c_[np.concatenate(xy), np.concatenate(z)]
         return xyz
 
@@ -100,7 +100,8 @@ class Stack:
             zip(self._layers, self._symbols, self._z, spacings)
         ):
             rep.append(
-                f"{index:>6} -> {layer.n:>4} x {symbol:<2} at z = {z:10.6f}  {delta}"
+                f"{index:>6} -> {layer.num_sites:>4} "
+                f"x {symbol:<2} at z = {z:10.6f}  {delta}"
             )
         return "\n".join(rep)
 
@@ -126,13 +127,13 @@ class _WurtZite(Stack):
 
 class WurtZiteCC(_WurtZite):
     def _hexagonal_layers(self, cell_a, nx, ny):
-        a = HexagonalCC(cell_a, nx, ny)
+        a = HexagonalCC(cell_a, (nx, ny))
         b = Shifted(a, [0, cell_a / np.sqrt(3)])
         return a, b
 
 
 class WurtZite(_WurtZite):
     def _hexagonal_layers(self, cell_a, nx, ny):
-        a = Hexagonal(cell_a, nx, ny)
+        a = Hexagonal(cell_a, (nx, ny))
         b = Shifted(a, [cell_a, cell_a / np.sqrt(3)])
         return a, b
