@@ -4,7 +4,7 @@ import abc
 import numpy as np
 from ase import Atoms
 
-from .plane import AtomicPlane, HexagonalPlane, HexagonalPlaneCC
+import wurtzite.plane as plane
 
 
 class Stack:
@@ -73,10 +73,10 @@ class _WurtZite(Stack):
         A, B = symbols
         a, b = self._hexagonal(cell_a, (nx, ny))
         atomic_planes = nz * [
-            AtomicPlane(a, A),
-            AtomicPlane(b, B),
-            AtomicPlane(b, A),
-            AtomicPlane(a, B),
+            plane.AtomicPlane(a, A),
+            plane.AtomicPlane(b, B),
+            plane.AtomicPlane(b, A),
+            plane.AtomicPlane(a, B),
         ]
         spacings = (nz * [cell_z1, cell_z2, cell_z1, cell_z2])[:-1]
         if surf_z1 is not None:
@@ -90,13 +90,13 @@ class _WurtZite(Stack):
 
 class WurtZiteCC(_WurtZite):
     def _hexagonal(self, cell_a, nxy):
-        a = HexagonalPlaneCC(cell_a, nxy)
+        a = plane.HexagonalPlaneCC(cell_a, nxy)
         b = a.translate([0, cell_a / np.sqrt(3)])
         return a, b
 
 
 class WurtZite(_WurtZite):
     def _hexagonal(self, cell_a, nxy):
-        a = HexagonalPlane(cell_a, nxy)
+        a = plane.HexagonalPlane(cell_a, nxy)
         b = a.translate([cell_a, cell_a / np.sqrt(3)])
         return a, b
