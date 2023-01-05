@@ -151,6 +151,10 @@ class AtomicPlane:
     def xy_cell(self):
         return self._plane.xy_cell()
 
+    @property
+    def xy_positions(self):
+        return self._plane.xy_positions()
+
     def get_positions(self, z):
         return self._plane.get_positions(z)
 
