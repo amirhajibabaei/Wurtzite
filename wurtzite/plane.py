@@ -4,6 +4,7 @@ from collections import Counter
 from collections.abc import Sequence
 
 import numpy as np
+from ase import Atoms
 from ase.data import atomic_numbers
 
 
@@ -157,4 +158,15 @@ class AtomicPlane:
         return AtomicPlane(self._plane, atoms)
 
     def __repr__(self):
-        return f"{Counter(self.atoms)}"
+        return f"AtomicPlane: {Counter(self.atoms)}"
+
+    def as_ase_atoms(self, vacuum=10.0):
+        cell_xy = np.c_[self.xy_cell, [0, 0]]
+        cell = np.r_[cell_xy, [[0, 0, 2 * vacuum]]]
+        atoms = Atoms(
+            symbols=self.atoms,
+            positions=self.get_positions(vacuum),
+            cell=cell,
+            pbc=True,
+        )
+        return atoms
