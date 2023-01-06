@@ -8,24 +8,24 @@ from ase import Atoms
 from ase.data import atomic_numbers
 
 
-class Plane:
+class Plane(abc.ABC):
     @abc.abstractmethod
-    def xy_positions(self):
+    def xy_positions(self) -> "np.ndarray":  # shape: [:, 2]
         ...
 
     @abc.abstractmethod
-    def xy_cell(self):
+    def xy_cell(self) -> "np.ndarray":  # shape: [2, 2]
         ...
 
     def __len__(self):
         return len(self.xy_positions())
 
-    def get_positions(self, z):
+    def xyz_positions(self, z: float) -> "np.ndarray":  # shape: [:, 3]
         xy = self.xy_positions()
         z = np.full(xy.shape[0], z)
         return np.c_[xy, z]
 
-    def translate(self, tr):
+    def translate(self, tr) -> "Plane":
         return ShiftedPlane(self, tr)
 
 
@@ -42,10 +42,11 @@ class CustomPlane(Plane):
 
 
 class LatticePlane(Plane):
-    def __init__(self, vectors, basis, nxy):
+    def __init__(self, vectors, basis, nxy, roll=(0, 0)):
         self._vectors = np.asarray(vectors)
         self._basis = np.asarray(basis)
         self._nxy = nxy
+        self._roll = roll
         self._pos = None
         self._cell = None
 
@@ -53,6 +54,7 @@ class LatticePlane(Plane):
         if self._pos is None:
             nx, ny = self._nxy
             p = np.mgrid[0:nx, 0:ny].reshape(2, -1).T
+            p = (p + self._roll) % [nx, ny]
             q = (p[:, None] + self._basis).reshape(-1, 2)
             self._pos = (q[..., None] * self._vectors).sum(axis=-2)
             self._indices = np.tile(p, (1, self._basis.shape[0])).reshape(-1, 2)
@@ -70,13 +72,20 @@ class LatticePlane(Plane):
         a, b = (self._indices < np.asarray(nxy).reshape(2)).T
         return np.logical_and(a, b)
 
-    def lat_disp(self, nxy):
+    def lattice_displacement(self, nxy):
         nx, ny = nxy
         return (np.array([[nx], [ny]]) * self._vectors).sum(axis=0)
 
+    def roll(self, rxy):
+        a0, b0 = self._roll
+        a, b = rxy
+        return LatticePlane(
+            self._vectors, self._basis, self._nxy, roll=(a0 + a, b0 + b)
+        )
+
 
 class CubicPlane(LatticePlane):
-    def __init__(self, a, nxy):
+    def __init__(self, a, nxy, roll=(0, 0)):
         uc = (
             np.array(
                 [
@@ -88,11 +97,11 @@ class CubicPlane(LatticePlane):
         )
 
         b = np.array([[0, 0]])
-        super().__init__(uc, b, nxy)
+        super().__init__(uc, b, nxy, roll=roll)
 
 
 class HexagonalPlane(LatticePlane):
-    def __init__(self, a, nxy):
+    def __init__(self, a, nxy, roll=(0, 0)):
         uc = (
             np.array(
                 [
@@ -103,11 +112,11 @@ class HexagonalPlane(LatticePlane):
             * a
         )
         b = np.array([[0, 0]])
-        super().__init__(uc, b, nxy)
+        super().__init__(uc, b, nxy, roll=roll)
 
 
 class HexagonalPlaneCC(LatticePlane):
-    def __init__(self, a, nxy):
+    def __init__(self, a, nxy, roll=(0, 0)):
         uc = (
             np.array(
                 [
@@ -118,7 +127,7 @@ class HexagonalPlaneCC(LatticePlane):
             * a
         )
         b = np.array([[0, 0], [0.5, 0.5]])
-        super().__init__(uc, b, nxy)
+        super().__init__(uc, b, nxy, roll=roll)
 
 
 class ShiftedPlane(Plane):
@@ -166,8 +175,8 @@ class AtomicPlane:
     def xy_positions(self):
         return self._plane.xy_positions()
 
-    def get_positions(self, z):
-        return self._plane.get_positions(z)
+    def xyz_positions(self, z):
+        return self._plane.xyz_positions(z)
 
     def subs_atoms(self, atoms):
         return AtomicPlane(self._plane, atoms)
@@ -178,6 +187,9 @@ class AtomicPlane:
         atoms = [atom if t else a for t, a in zip(tags, self.atoms)]
         return self.subs_atoms(atoms)
 
+    def roll(self, rxy):
+        return AtomicPlane(self._plane.roll(rxy), self._atoms)
+
     def __repr__(self):
         return f"AtomicPlane: {Counter(self.atoms)}"
 
@@ -186,7 +198,7 @@ class AtomicPlane:
         cell = np.r_[cell_xy, [[0, 0, 2 * vacuum]]]
         atoms = Atoms(
             symbols=self.atoms,
-            positions=self.get_positions(vacuum),
+            positions=self.xyz_positions(vacuum),
             cell=cell,
             pbc=True,
         )

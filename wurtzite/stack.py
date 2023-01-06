@@ -36,10 +36,10 @@ class Stack:
         return z
 
     @property
-    def positions(self):
+    def xyz_positions(self):
         xyz = []
         for p, z in zip(self._atomic_planes, self.z_positions):
-            xyz.append(p.get_positions(z))
+            xyz.append(p.xyz_positions(z))
         return np.concatenate(xyz)
 
     @property
@@ -52,7 +52,7 @@ class Stack:
     def as_ase_atoms(self):
         atoms = Atoms(
             symbols=self.atoms,
-            positions=self.positions,
+            positions=self.xyz_positions,
             cell=self.cell,
             pbc=True,
         )
