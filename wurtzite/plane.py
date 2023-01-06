@@ -55,6 +55,7 @@ class LatticePlane(Plane):
             p = np.mgrid[0:nx, 0:ny].reshape(2, -1).T
             q = (p[:, None] + self._basis).reshape(-1, 2)
             self._pos = (q[..., None] * self._vectors).sum(axis=-2)
+            self._indices = np.tile(p, (1, self._basis.shape[0])).reshape(-1, 2)
         return self._pos
 
     def xy_cell(self):
@@ -62,6 +63,16 @@ class LatticePlane(Plane):
             nxy = np.asarray(self._nxy).reshape(2, 1)
             self._cell = nxy * self._vectors
         return self._cell
+
+    def select_chunk(self, nxy):
+        if self._pos is None:
+            self.xy_positions()
+        a, b = (self._indices < np.asarray(nxy).reshape(2)).T
+        return np.logical_and(a, b)
+
+    def lat_disp(self, nxy):
+        nx, ny = nxy
+        return (np.array([[nx], [ny]]) * self._vectors).sum(axis=0)
 
 
 class CubicPlane(LatticePlane):
@@ -158,8 +169,14 @@ class AtomicPlane:
     def get_positions(self, z):
         return self._plane.get_positions(z)
 
-    def replace_atoms(self, atoms):
+    def subs_atoms(self, atoms):
         return AtomicPlane(self._plane, atoms)
+
+    def subs_chunk(self, nxy, atom):
+        assert type(atom) == str
+        tags = self._plane.select_chunk(nxy)
+        atoms = [atom if t else a for t, a in zip(tags, self.atoms)]
+        return self.subs_atoms(atoms)
 
     def __repr__(self):
         return f"AtomicPlane: {Counter(self.atoms)}"
