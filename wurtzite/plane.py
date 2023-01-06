@@ -28,6 +28,9 @@ class Plane(abc.ABC):
     def translate(self, tr) -> "Plane":
         return ShiftedPlane(self, tr)
 
+    def repeat(self, rxy):
+        return RepeatedPlane(self, rxy)
+
 
 class CustomPlane(Plane):
     def __init__(self, xy_positions, xy_cell):
@@ -145,6 +148,29 @@ class ShiftedPlane(Plane):
         return self._plane.xy_cell()
 
 
+class RepeatedPlane(Plane):
+    def __init__(self, plane, repeat):
+        self._plane = plane
+        self._repeat = np.asarray(repeat)
+        self._pos = None
+
+    def xy_positions(self):
+        if self._pos is None:
+            a, b = self._plane.xy_cell()
+            xy = self._plane.xy_positions()
+            rx, ry = self._repeat
+            self._pos = []
+            for i in range(rx):
+                for j in range(ry):
+                    self._pos.append(xy + i * a + j * b)
+            self._pos = np.concatenate(self._pos)
+        return self._pos
+
+    def xy_cell(self):
+        rep = np.asarray(self._repeat).reshape(2, 1)
+        return rep * self._plane.xy_cell()
+
+
 class AtomicPlane:
     def __init__(self, plane, atoms="X"):
 
@@ -189,6 +215,13 @@ class AtomicPlane:
 
     def roll(self, rxy):
         return AtomicPlane(self._plane.roll(rxy), self._atoms)
+
+    def repeat(self, rxy):
+        if isinstance(self._atoms, str):
+            atoms = self._atoms
+        else:
+            atoms = np.prod(rxy) * self.atoms
+        return AtomicPlane(self._plane.repeat(rxy), atoms)
 
     def __repr__(self):
         return f"AtomicPlane: {Counter(self.atoms)}"
