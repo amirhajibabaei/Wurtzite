@@ -1,4 +1,6 @@
 # +
+from __future__ import annotations
+
 import abc
 from io import StringIO
 
@@ -23,9 +25,14 @@ class PairPot(abc.ABC):
         ...
 
 
+class ZeroPot(abc.ABC):
+    def energy_and_force(self, r: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        return np.zeros_like(r), np.zeros_like(r)
+
+
 class _rePRV(PairPot):
     """
-    Parrinello–Rahman–Vashista
+    Reparameterized Parrinello–Rahman–Vashista potential
     """
 
     def __init__(self, eta, H, P, C):
@@ -65,19 +72,51 @@ class rePRV(_rePRV):
         super().__init__(*par)
 
 
-def write_table(
-    pairpots,
-    units,
-    file,
-    rmin=0.1,
-    rmax=10.0,
-    dr=0.01,
-    cutoff=None,
-    shift=True,
-):
+def write_lammps_table(
+    pairpots: dict[tuple[str, str], PairPot],
+    units: str,
+    file: str,
+    rmin: float = 0.1,
+    rmax: float = 10.0,
+    dr: float = 0.01,
+    cutoff: float | None = None,
+    shift: bool = True,
+) -> tuple[int, dict[tuple[str, str], str]]:
+    """
+    A function for writing tabular potentials to be used with
+    "pair_style table" in LAMMPS.
+
+    Args:
+        pairpots:
+            a dict mapping pairs to potentials
+            e.g. {("Ag", "I"): rePRV("Ag", "I"), ...}
+        units:
+            lammps units to be used for table
+            e.g. "metal" or "real", ...
+        file:
+            filename for table
+            e.g. "pot.table"
+        rmin, rmax, dr, cutoff:
+            self-explanatory distances (in Angstrom units)
+            if cutoff is None, it will simply write the potential
+            up to rmax.
+        shift:
+            if True, shifts the potentials to become zero at cutoff
+
+    Returns:
+        N:
+            N values in lookup
+        keys:
+            keywords for each pair
+            e.g. {("Ag", "I"): "Ag_I", ...}
+
+    """
+
     with open(file, "w") as of:
+
         # header
         of.write(f"# UNITS: {units}\n")
+
         keys = {}
         for pair, pot in pairpots.items():
             # r, e, f
@@ -95,23 +134,32 @@ def write_table(
             if cutoff is not None:
                 e[c:] = 0
                 f[c:] = 0
+
+            # data
             r = convert(r, "distance", "ASE", units)
             e = convert(e, "energy", "ASE", units)
             f = convert(f, "force", "ASE", units)
-
-            # write
             N = r.shape[0]
             i = np.arange(1, N + 1)
             data = np.c_[i, r, e, f]
+
+            # write
             key = "_".join(pair)
-            keys[pair] = (key, N)
+            keys[pair] = key
             of.write(f"\n{key}")
             of.write(f"\nN {N}\n\n")
             np.savetxt(of, data, fmt=("%10d", "%.18e", "%.18e", "%.18e"))
-    return keys
+
+    return N, keys
 
 
-def read_table(file):
+def read_lammps_table(file: str) -> dict[str, np.ndarray]:
+    """
+    It will read a table from file.
+    Note that it will convert the table to
+    ASE units: A, eV, eV/A
+    """
+
     def _read_blocks(path):
         with open(path) as of:
             blocks = [[]]

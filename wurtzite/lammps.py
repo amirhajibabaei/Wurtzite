@@ -10,14 +10,14 @@ from ase.data import atomic_masses, chemical_symbols
 from ase.geometry import wrap_positions
 from lammps import lammps
 
-from wurtzite.pairpot import write_table
+from wurtzite.pairpot import write_lammps_table
 from wurtzite.rotations import PrismRotation
 
 
-class Lmp:
+class LAMMPS:
     def __init__(self, atoms: Atoms, units: str = "real"):
 
-        lmp = lammps()
+        lmp = lammps(cmdargs="-screen none".split())
 
         # units, style, boundary:
         boundary = " ".join(["p" if b else "f" for b in atoms.pbc])
@@ -34,8 +34,8 @@ class Lmp:
         # define region
         region_id = "cell"
         lower = cell.flat[[0, 4, 8, 3, 6, 7]]
-        prism = "0 {} 0 {} 0 {}  {} {} {}".format(*lower)
-        lmp.command(f"region {region_id} prism  {prism} units box")
+        prism = "0 {} 0 {} 0 {} {} {} {}".format(*lower)
+        lmp.command(f"region {region_id} prism {prism} units box")
 
         # create box
         unique = np.unique(atoms.get_atomic_numbers())  # auto-sorted
@@ -71,13 +71,20 @@ class Lmp:
         self._sym2type = sym2type
 
     def _set(self, quantity: str, values: dict[str, Any]) -> None:
-        for e, v in values.items():
+        for e, _v in values.items():
             t = self._sym2type[e]
+            v = convert(_v, quantity, "ASE", self._units)
             self._lmp.command(f"set type {t} {quantity} {v}")
 
-    def forcefield(self, pairpots, cutoff, charges):
-        _table = "energy.table"
-        keys = write_table(
+    def set_charges(self, charges):
+        self._set("charge", charges)
+
+    def set_pair_coeffs(
+        self, pairpots, cutoff, kspace_style="pppm 1e-4", verbose=False
+    ):
+        # write pairpots to table
+        _table = "_pairs.table"
+        N, keys = write_lammps_table(
             pairpots,
             self._units,
             _table,
@@ -86,18 +93,26 @@ class Lmp:
             cutoff=cutoff,
             shift=True,
         )
-        N = []
-        commands = []
-        for pair, (id_, _N) in keys.items():
+
+        #
+        cutoff = convert(cutoff, "distance", "ASE", self._units)
+        commands = [f"pair_style hybrid/overlay coul/long {cutoff} table linear {N}"]
+        for pair, key in keys.items():
             t1 = self._sym2type[pair[0]]
             t2 = self._sym2type[pair[1]]
-            N.append(_N)
-            commands.append(f"pair_coeff {t1} {t2} table {_table} {id_} {cutoff}")
+            commands.append(f"pair_coeff {t1} {t2} table {_table} {key} {cutoff}")
             commands.append(f"pair_coeff {t1} {t2} coul/long")
-        (N,) = set(N)
-        commands.insert(
-            0, f"pair_style hybrid/overlay coul/long {cutoff} table linear {N}"
-        )
+
+        if kspace_style is not None:
+            commands.append(f"kspace_style {kspace_style}")
+
+        if verbose:
+            print("\n".join(commands))
+
         self._lmp.commands_list(commands)
-        self._lmp.command("kspace_style pppm 0.00001")
-        self._set("charge", charges)
+
+    def get_potential_energy(self):
+        self._lmp.command("run 0")
+        e = self._lmp.get_thermo("pe")
+        e = convert(e, "energy", self._units, "ASE")
+        return e
