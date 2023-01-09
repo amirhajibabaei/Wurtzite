@@ -1,6 +1,7 @@
 # +
+from __future__ import annotations
+
 import abc
-from collections import Counter
 from collections.abc import Sequence
 
 import numpy as np
@@ -8,88 +9,100 @@ from ase import Atoms
 from ase.data import atomic_numbers
 
 
-class Plane(abc.ABC):
+class AtomicPlane(abc.ABC):
     @abc.abstractmethod
-    def xy_positions(self) -> "np.ndarray":  # shape: [:, 2]
+    def get_xy_positions(self) -> np.ndarray:
         ...
 
     @abc.abstractmethod
-    def xy_cell(self) -> "np.ndarray":  # shape: [2, 2]
+    def get_xy_cell(self) -> np.ndarray:
         ...
 
-    def __len__(self):
-        return len(self.xy_positions())
+    @abc.abstractmethod
+    def get_chemical_symbols(self) -> Sequence[str]:
+        ...
 
-    def xyz_positions(self, z: float) -> "np.ndarray":  # shape: [:, 3]
-        xy = self.xy_positions()
+    # ****** derived methods ******
+    def get_xyz_positions(self, z: float) -> np.ndarray:
+        xy = self.get_xy_positions()
         z = np.full(xy.shape[0], z)
         return np.c_[xy, z]
 
-    def translate(self, tr) -> "Plane":
-        return ShiftedPlane(self, tr)
+    def __len__(self) -> int:
+        return len(self.get_xy_positions())
 
-    def repeat(self, rxy):
-        return RepeatedPlane(self, rxy)
+    # ****** compositions ******
+    def with_chemical_symbols(self, symbols) -> GenericPlane:
+        return GenericPlane(self.get_xy_positions(), self.get_xy_cell(), symbols)
 
+    def repeat(self, repeat) -> Repetition:
+        return Repetition(self, repeat)
 
-class CustomPlane(Plane):
-    def __init__(self, xy_positions, xy_cell):
-        self._pos = xy_positions
-        self._cell = xy_cell
+    def translate(self, tr) -> Translation:
+        return Translation(self, tr)
 
-    def xy_positions(self):
-        return self._pos
-
-    def xy_cell(self):
-        return self._cell
-
-
-class LatticePlane(Plane):
-    def __init__(self, vectors, basis, nxy, roll=(0, 0)):
-        self._vectors = np.asarray(vectors)
-        self._basis = np.asarray(basis)
-        self._nxy = nxy
-        self._roll = roll
-        self._pos = None
-        self._cell = None
-
-    def xy_positions(self):
-        if self._pos is None:
-            nx, ny = self._nxy
-            p = np.mgrid[0:nx, 0:ny].reshape(2, -1).T
-            p = (p + self._roll) % [nx, ny]
-            q = (p[:, None] + self._basis).reshape(-1, 2)
-            self._pos = (q[..., None] * self._vectors).sum(axis=-2)
-            self._indices = np.tile(p, (1, self._basis.shape[0])).reshape(-1, 2)
-        return self._pos
-
-    def xy_cell(self):
-        if self._cell is None:
-            nxy = np.asarray(self._nxy).reshape(2, 1)
-            self._cell = nxy * self._vectors
-        return self._cell
-
-    def select_chunk(self, nxy):
-        if self._pos is None:
-            self.xy_positions()
-        a, b = (self._indices < np.asarray(nxy).reshape(2)).T
-        return np.logical_and(a, b)
-
-    def lattice_displacement(self, nxy):
-        nx, ny = nxy
-        return (np.array([[nx], [ny]]) * self._vectors).sum(axis=0)
-
-    def roll(self, rxy):
-        a0, b0 = self._roll
-        a, b = rxy
-        return LatticePlane(
-            self._vectors, self._basis, self._nxy, roll=(a0 + a, b0 + b)
+    # ****** ASE compatiability ******
+    def as_ase_atoms(self, z=10.0) -> Atoms:
+        _cell = np.c_[self.get_xy_cell(), [0, 0]]
+        cell = np.r_[_cell, [[0, 0, 2 * z]]]
+        atoms = Atoms(
+            symbols=self.get_chemical_symbols(),
+            positions=self.get_xyz_positions(z),
+            cell=cell,
+            pbc=True,
         )
+        return atoms
 
 
-class CubicPlane(LatticePlane):
-    def __init__(self, a, nxy, roll=(0, 0)):
-        uc = (
+class GenericPlane(AtomicPlane):
+    def __init__(
+        self,
+        xy: np.ndarray,
+        xy_cell: np.ndarray,
+        symbols: str | Sequence[str],
+        scaled_positions: bool = False,
+    ):
+        if scaled_positions:
+            xy = (xy[..., None] * xy_cell).sum(axis=-2)
+        if type(symbols) == str:
+            symbols = xy.shape[0] * [symbols]
+        for symbol in symbols:
+            assert symbol in atomic_numbers
+        self._xy = xy
+        self._symbols = symbols
+        self._xy_cell = xy_cell
+
+    def get_chemical_symbols(self) -> Sequence[str]:
+        return self._symbols
+
+    def get_xy_positions(self) -> np.ndarray:
+        return self._xy
+
+    def get_xy_cell(self) -> np.ndarray:
+        return self._xy_cell
+
+
+class _PlaneMixin:
+    """
+    All subclasses set self._plane attribute upon init.
+    A few or all of the following methods can be overwritten by children.
+    """
+
+    _plane: AtomicPlane
+
+    def get_xy_positions(self) -> np.ndarray:
+        return self._plane.get_xy_positions()
+
+    def get_xy_cell(self) -> np.ndarray:
+        return self._plane.get_xy_cell()
+
+    def get_chemical_symbols(self) -> Sequence[str]:
+        return self._plane.get_chemical_symbols()
+
+
+class CubicPlane(_PlaneMixin, AtomicPlane):
+    def __init__(self, a: float, symbols: str | Sequence[str]):
+        xy_cell = (
             np.array(
                 [
                     [1, 0],  #
@@ -98,14 +111,13 @@ class CubicPlane(LatticePlane):
             )
             * a
         )
+        xy = np.array([[0, 0]])
+        self._plane = GenericPlane(xy, xy_cell, symbols, scaled_positions=True)
 
-        b = np.array([[0, 0]])
-        super().__init__(uc, b, nxy, roll=roll)
 
-
-class HexagonalPlane(LatticePlane):
-    def __init__(self, a, nxy, roll=(0, 0)):
-        uc = (
+class HexagonalPlane(_PlaneMixin, AtomicPlane):
+    def __init__(self, a: float, symbols: str | Sequence[str]):
+        xy_cell = (
             np.array(
                 [
                     [1, 0],  #
@@ -114,13 +126,13 @@ class HexagonalPlane(LatticePlane):
             )
             * a
         )
-        b = np.array([[0, 0]])
-        super().__init__(uc, b, nxy, roll=roll)
+        xy = np.array([[0, 0]])
+        self._plane = GenericPlane(xy, xy_cell, symbols, scaled_positions=True)
 
 
-class HexagonalPlaneCC(LatticePlane):
-    def __init__(self, a, nxy, roll=(0, 0)):
-        uc = (
+class HexagonalPlane2(_PlaneMixin, AtomicPlane):
+    def __init__(self, a: float, symbols: str | Sequence[str]):
+        xy_cell = (
             np.array(
                 [
                     [1, 0],  #
@@ -129,110 +141,61 @@ class HexagonalPlaneCC(LatticePlane):
             )
             * a
         )
-        b = np.array([[0, 0], [0.5, 0.5]])
-        super().__init__(uc, b, nxy, roll=roll)
+        xy = np.array([[0, 0], [0.5, 0.5]])
+        self._plane = GenericPlane(xy, xy_cell, symbols, scaled_positions=True)
 
 
-class ShiftedPlane(Plane):
-    def __init__(self, plane, tr):
+class Translation(_PlaneMixin, AtomicPlane):
+    def __init__(self, plane: AtomicPlane, tr: tuple[float, float]):
         self._plane = plane
-        self._tr = np.asarray(tr)
-        self._pos = None
+        self._tr = tr
 
-    def xy_positions(self):
-        if self._pos is None:
-            self._pos = self._plane.xy_positions() + self._tr
-        return self._pos
-
-    def xy_cell(self):
-        return self._plane.xy_cell()
+    def get_xy_positions(self) -> np.ndarray:
+        return self._plane.get_xy_positions() + self._tr
 
 
-class RepeatedPlane(Plane):
-    def __init__(self, plane, repeat):
+class Repetition(_PlaneMixin, AtomicPlane):
+    def __init__(self, plane: AtomicPlane, repeat: tuple[int, int]):
         self._plane = plane
-        self._repeat = np.asarray(repeat)
-        self._pos = None
+        self._repeat = repeat
 
-    def xy_positions(self):
-        if self._pos is None:
-            a, b = self._plane.xy_cell()
-            xy = self._plane.xy_positions()
-            rx, ry = self._repeat
-            self._pos = []
-            for i in range(rx):
-                for j in range(ry):
-                    self._pos.append(xy + i * a + j * b)
-            self._pos = np.concatenate(self._pos)
-        return self._pos
+    def get_chemical_symbols(self) -> Sequence[str]:
+        return self._plane.get_chemical_symbols() * np.prod(self._repeat)
 
-    def xy_cell(self):
-        rep = np.asarray(self._repeat).reshape(2, 1)
-        return rep * self._plane.xy_cell()
+    def get_xy_positions(self) -> np.ndarray:
+        a, b = self._plane.get_xy_cell()
+        _xy = self._plane.get_xy_positions()
+        rx, ry = self._repeat
+        xy = []
+        for i in range(rx):
+            for j in range(ry):
+                xy.append(_xy + i * a + j * b)
+        return np.concatenate(xy)
+
+    def get_xy_cell(self) -> np.ndarray:
+        repeat = np.asarray(self._repeat).reshape(2, 1)
+        return repeat * self._plane.get_xy_cell()
+
+    def repeat(self, repeat: tuple[int, int]) -> Repetition:
+        a1, b1 = repeat
+        a2, b2 = self._repeat
+        return Repetition(self._plane, (a1 * a2, b1 * b2))
 
 
-class AtomicPlane:
-    def __init__(self, plane, atoms="X"):
+def test_planes() -> bool:
+    c = CubicPlane(1.0, "H")
+    h1 = HexagonalPlane(1.0, "H")
+    h2 = HexagonalPlane2(1.0, "H")
+    for p in [c, h1, h2]:
+        tr = p.translate((0.0, 0.0))
+        assert np.allclose(p.get_xy_positions(), tr.get_xy_positions())
+        p22 = p.repeat((2, 2))
+        assert len(p22) == 4 * len(p)
+        p1 = p.with_chemical_symbols("He")
+        p2 = p.with_chemical_symbols(len(p) * ["He"])
+        assert p1.get_chemical_symbols() == p2.get_chemical_symbols()
+    return True
 
-        if type(atoms) == str:
-            assert atoms in atomic_numbers
-        elif isinstance(atoms, Sequence):
-            assert len(atoms) == len(plane)
-            unknown = [a for a in set(atoms) if a not in atomic_numbers]
-            assert len(unknown) == 0
-        else:
-            raise RuntimeError("Invalid atoms!")
 
-        self._plane = plane
-        self._atoms = atoms
-
-    @property
-    def atoms(self):
-        if type(self._atoms) == str:
-            return len(self._plane) * [self._atoms]
-        else:
-            return self._atoms
-
-    @property
-    def xy_cell(self):
-        return self._plane.xy_cell()
-
-    @property
-    def xy_positions(self):
-        return self._plane.xy_positions()
-
-    def xyz_positions(self, z):
-        return self._plane.xyz_positions(z)
-
-    def subs_atoms(self, atoms):
-        return AtomicPlane(self._plane, atoms)
-
-    def subs_chunk(self, nxy, atom):
-        assert type(atom) == str
-        tags = self._plane.select_chunk(nxy)
-        atoms = [atom if t else a for t, a in zip(tags, self.atoms)]
-        return self.subs_atoms(atoms)
-
-    def roll(self, rxy):
-        return AtomicPlane(self._plane.roll(rxy), self._atoms)
-
-    def repeat(self, rxy):
-        if isinstance(self._atoms, str):
-            atoms = self._atoms
-        else:
-            atoms = np.prod(rxy) * self.atoms
-        return AtomicPlane(self._plane.repeat(rxy), atoms)
-
-    def __repr__(self):
-        return f"AtomicPlane: {Counter(self.atoms)}"
-
-    def as_ase_atoms(self, vacuum=10.0):
-        cell_xy = np.c_[self.xy_cell, [0, 0]]
-        cell = np.r_[cell_xy, [[0, 0, 2 * vacuum]]]
-        atoms = Atoms(
-            symbols=self.atoms,
-            positions=self.xyz_positions(vacuum),
-            cell=cell,
-            pbc=True,
-        )
-        return atoms
+if __name__ == "__main__":
+    test_planes()
