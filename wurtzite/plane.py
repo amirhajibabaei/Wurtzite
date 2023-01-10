@@ -190,6 +190,37 @@ class Repetition(_PlaneMixin, AtomicPlane):
         a2, b2 = self._repeat
         return Repetition(self._plane, (a1 * a2, b1 * b2))
 
+    def get_section(
+        self, nxy: int | tuple[int, int], *, origin: int | tuple[int, int] = 0
+    ) -> Sequence[bool]:
+        rx, ry = self._repeat
+        nx, ny = _repeat_tuple(nxy)
+        ox, oy = _repeat_tuple(origin)
+        n = len(self._plane)
+        sec = []
+        for i in range(rx):
+            ii = i - ox
+            for j in range(ry):
+                jj = j - oy
+                if ii >= 0 and ii < nx and jj >= 0 and jj < ny:
+                    sec.extend(n * [True])
+                else:
+                    sec.extend(n * [False])
+        return sec
+
+    def set_section_symbols(
+        self,
+        nxy: int | tuple[int, int],
+        symbol: str,
+        *,
+        origin: int | tuple[int, int] = 0,
+    ) -> GenericPlane:
+        mask = self.get_section(nxy, origin=origin)
+        symbols = tuple(
+            symbol if m else s for m, s in zip(mask, self.get_chemical_symbols())
+        )
+        return GenericPlane(self.get_xy_positions(), self.get_xy_cell(), symbols)
+
 
 def test_planes() -> bool:
     c = CubicPlane(1.0, "H")
