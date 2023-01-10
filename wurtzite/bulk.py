@@ -103,13 +103,13 @@ class _StackingMixin:
         return self._spacings
 
     def set_plane(self, index: int, plane: AtomicPlane) -> GenericStacking:
-        assert index >= 0 and index < len(self._planes)
+        index = index % len(self._planes)
         planes = tuple(plane if i == index else p for i, p in enumerate(self._planes))
         assert all_xy_cells_are_identical(planes)
         return GenericStacking(planes, self._spacings)
 
     def set_spacing(self, index: int, spacing: float) -> GenericStacking:
-        assert index >= 0 and index < len(self._planes)
+        index = index % len(self._planes)
         spacings = tuple(
             spacing if i == index else s for i, s in enumerate(self._spacings)
         )

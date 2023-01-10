@@ -25,13 +25,12 @@ def AgI_wurtzite0001(
 
     _WurtZite = WurtZite2 if cubic_cell else WurtZite
     stack = _WurtZite(a, z1, z2, ("Ag", "I")).repeat(repeat)
-    n = stack.get_num_planes()
 
     if not bulk_termination:
         stack = stack.set_spacing(0, z1_Ag)
-        stack = stack.set_spacing(n - 2, z1_I)
+        stack = stack.set_spacing(-2, z1_I)
 
     if vacuum is not None:
-        stack = stack.set_spacing(n - 1, vacuum)
+        stack = stack.set_spacing(-1, vacuum)
 
     return stack

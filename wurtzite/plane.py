@@ -154,10 +154,19 @@ class Translation(_PlaneMixin, AtomicPlane):
         return self._plane.get_xy_positions() + self._tr
 
 
+def _repeat_tuple(repeat: int | tuple[int, int]) -> tuple[int, int]:
+    if type(repeat) == int:
+        return (repeat, repeat)
+    elif type(repeat) == tuple:
+        return repeat
+    else:
+        raise RuntimeError
+
+
 class Repetition(_PlaneMixin, AtomicPlane):
-    def __init__(self, plane: AtomicPlane, repeat: tuple[int, int]):
+    def __init__(self, plane: AtomicPlane, repeat: int | tuple[int, int]):
         self._plane = plane
-        self._repeat = repeat
+        self._repeat = _repeat_tuple(repeat)
 
     def get_chemical_symbols(self) -> Sequence[str]:
         return self._plane.get_chemical_symbols() * np.prod(self._repeat)
@@ -176,8 +185,8 @@ class Repetition(_PlaneMixin, AtomicPlane):
         repeat = np.asarray(self._repeat).reshape(2, 1)
         return repeat * self._plane.get_xy_cell()
 
-    def repeat(self, repeat: tuple[int, int]) -> Repetition:
-        a1, b1 = repeat
+    def repeat(self, repeat: int | tuple[int, int]) -> Repetition:
+        a1, b1 = _repeat_tuple(repeat)
         a2, b2 = self._repeat
         return Repetition(self._plane, (a1 * a2, b1 * b2))
 
