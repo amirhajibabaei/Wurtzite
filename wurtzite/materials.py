@@ -1,28 +1,37 @@
 # +
-from wurtzite.stack import WurtZite, WurtZiteCC
+from __future__ import annotations
+
+from wurtzite.bulk import PlaneStacking, WurtZite, WurtZite2
 
 
-def AgI_wurtzite0001(nxyz, vacuum=20, cubic_cell=False, adjust_surfaces=False):
+def AgI_wurtzite0001(
+    repeat: int | tuple[int, int, int],
+    *,
+    cubic_cell: bool = False,
+    bulk_termination: bool = True,
+    vacuum: float | None = None,
+) -> PlaneStacking:
     """
     The parameters are obtained from
     classical MD simulations at 300 K.
     """
-    cell_a = 4.701159859488822
-    # cell_c = 7.531811086118183 # = 2*(z1+z2)
-    cell_z1 = 0.8350589042773436
-    cell_z2 = 2.930866754308036
-    z1_surf_Ag = 0.28897763244509367
-    z1_surf_I = 0.7073479272906041
 
-    _WurtZite = WurtZiteCC if cubic_cell else WurtZite
+    a = 4.701159859488822
+    # c = 7.531811086118183 # = 2*(z1+z2)
+    z1 = 0.8350589042773436
+    z2 = 2.930866754308036
+    z1_Ag = 0.28897763244509367
+    z1_I = 0.7073479272906041
 
-    if adjust_surfaces:
-        surf_z1 = (z1_surf_Ag, z1_surf_I)
-    else:
-        surf_z1 = None
+    _WurtZite = WurtZite2 if cubic_cell else WurtZite
+    stack = _WurtZite(a, z1, z2, ("Ag", "I")).repeat(repeat)
+    n = stack.get_num_planes()
 
-    stack = _WurtZite(
-        cell_a, cell_z1, cell_z2, nxyz, ["Ag", "I"], surf_z1=surf_z1, vacuum=vacuum
-    )
+    if not bulk_termination:
+        stack = stack.set_spacing(0, z1_Ag)
+        stack = stack.set_spacing(n - 2, z1_I)
+
+    if vacuum is not None:
+        stack = stack.set_spacing(n - 1, vacuum)
 
     return stack

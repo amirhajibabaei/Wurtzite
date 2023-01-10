@@ -35,23 +35,35 @@ class Bulk(abc.ABC):
 
 class PlaneStacking(Bulk):
     @abc.abstractmethod
+    def get_num_planes(self) -> int:
+        ...
+
+    @abc.abstractmethod
     def get_planes(self) -> Sequence[AtomicPlane]:
         ...
 
     @abc.abstractmethod
-    def get_plane_spacings(self) -> Sequence[float]:
+    def get_spacings(self) -> Sequence[float]:
+        ...
+
+    @abc.abstractmethod
+    def set_plane(self, index: int, plane: AtomicPlane) -> PlaneStacking:
+        ...
+
+    @abc.abstractmethod
+    def set_spacing(self, index: int, spacing: float) -> PlaneStacking:
         ...
 
     def get_cell(self) -> np.ndarray:
         xy = self.get_planes()[0].get_xy_cell()
-        z = sum(self.get_plane_spacings())
+        z = sum(self.get_spacings())
         _xyz = np.c_[xy, [0, 0]]
         cell = np.r_[_xyz, [[0, 0, z]]]
         return cell
 
     def _get_z(self) -> list[float]:
         z = [0.0]
-        for delta in self.get_plane_spacings():
+        for delta in self.get_spacings():
             z.append(z[-1] + delta)
         return z
 
@@ -73,7 +85,7 @@ class PlaneStacking(Bulk):
         elif isinstance(repeat, tuple):
             nx, ny, nz = repeat
         planes = nz * [plane.repeat((nx, ny)) for plane in self.get_planes()]
-        spacings = nz * list(self.get_plane_spacings())
+        spacings = nz * list(self.get_spacings())
         return GenericStacking(planes, spacings)
 
 
@@ -81,22 +93,38 @@ class _StackingMixin:
     _planes: Sequence[AtomicPlane]
     _spacings: Sequence[float]
 
+    def get_num_planes(self) -> int:
+        return len(self._planes)
+
     def get_planes(self) -> Sequence[AtomicPlane]:
         return self._planes
 
-    def get_plane_spacings(self) -> Sequence[float]:
+    def get_spacings(self) -> Sequence[float]:
         return self._spacings
+
+    def set_plane(self, index: int, plane: AtomicPlane) -> GenericStacking:
+        assert index >= 0 and index < len(self._planes)
+        planes = tuple(plane if i == index else p for i, p in enumerate(self._planes))
+        assert all_xy_cells_are_identical(planes)
+        return GenericStacking(planes, self._spacings)
+
+    def set_spacing(self, index: int, spacing: float) -> GenericStacking:
+        assert index >= 0 and index < len(self._planes)
+        spacings = tuple(
+            spacing if i == index else s for i, s in enumerate(self._spacings)
+        )
+        return GenericStacking(self._planes, spacings)
 
 
 class GenericStacking(_StackingMixin, PlaneStacking):
-    def __init__(self, planes, spacings):
+    def __init__(self, planes: Sequence[AtomicPlane], spacings: Sequence[float]):
         assert len(planes) == len(spacings)
-        assert xy_cell_are_identical(planes)
-        self._planes = planes
-        self._spacings = spacings
+        assert all_xy_cells_are_identical(planes)
+        self._planes = tuple(planes)
+        self._spacings = tuple(spacings)
 
 
-def xy_cell_are_identical(planes) -> bool:
+def all_xy_cells_are_identical(planes) -> bool:
     cells = np.stack([plane.get_xy_cell() for plane in planes])
     return np.allclose(cells - cells[0], 0)
 

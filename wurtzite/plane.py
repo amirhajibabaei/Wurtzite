@@ -32,7 +32,7 @@ class AtomicPlane(abc.ABC):
         return len(self.get_xy_positions())
 
     # ****** compositions ******
-    def with_chemical_symbols(self, symbols) -> GenericPlane:
+    def with_chemical_symbols(self, symbols: Sequence[str]) -> GenericPlane:
         return GenericPlane(self.get_xy_positions(), self.get_xy_cell(), symbols)
 
     def repeat(self, repeat) -> Repetition:
@@ -69,7 +69,7 @@ class GenericPlane(AtomicPlane):
         for symbol in symbols:
             assert symbol in atomic_numbers
         self._xy = xy
-        self._symbols = symbols
+        self._symbols = tuple(symbols)
         self._xy_cell = xy_cell
 
     def get_chemical_symbols(self) -> Sequence[str]:
