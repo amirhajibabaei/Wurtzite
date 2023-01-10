@@ -47,6 +47,10 @@ class PlaneStacking(Bulk):
         ...
 
     @abc.abstractmethod
+    def get_plane(self, index: int) -> AtomicPlane:
+        ...
+
+    @abc.abstractmethod
     def set_plane(self, index: int, plane: AtomicPlane) -> PlaneStacking:
         ...
 
@@ -60,6 +64,12 @@ class PlaneStacking(Bulk):
         _xyz = np.c_[xy, [0, 0]]
         cell = np.r_[_xyz, [[0, 0, z]]]
         return cell
+
+    def get_volume(self) -> float:
+        return np.linalg.det(self.get_cell())
+
+    def get_surface_area(self) -> float:
+        return self.get_plane(0).get_area()
 
     def _get_z(self) -> list[float]:
         z = [0.0]
@@ -101,6 +111,9 @@ class _StackingMixin:
 
     def get_spacings(self) -> Sequence[float]:
         return self._spacings
+
+    def get_plane(self, index: int) -> AtomicPlane:
+        return self._planes[index]
 
     def set_plane(self, index: int, plane: AtomicPlane) -> GenericStacking:
         index = index % len(self._planes)

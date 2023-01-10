@@ -28,6 +28,9 @@ class AtomicPlane(abc.ABC):
         z = np.full(xy.shape[0], z)
         return np.c_[xy, z]
 
+    def get_area(self) -> float:
+        return abs(np.linalg.det(self.get_xy_cell()))
+
     def __len__(self) -> int:
         return len(self.get_xy_positions())
 
