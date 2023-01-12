@@ -30,13 +30,13 @@ class PairStyleCalculator(Calculator):
 
         if "numbers" in system_changes:
             self._lmp = LAMMPS(atoms)
-            self._lmp.set_pair_coeffs(
+            self._lmp.set_pair_coeffs_(
                 self._pairpots,
                 self._cutoff,
                 kspace_style=self._kspace_style,
                 dr=self._table_dr,
             )
-            self._lmp.set_charges(self._charges)
+            self._lmp.set_charges_(self._charges)
         else:
-            self._lmp.update_atoms(atoms)
+            self._lmp.update_positions_(atoms.pbc, atoms.cell, atoms.positions)
         self.results["energy"] = self._lmp.get_potential_energy(units="ASE")

@@ -5,45 +5,45 @@ import ctypes
 from typing import Any
 
 import numpy as np
-from ase.atoms import Atoms
 from ase.calculators.lammps import convert
 from ase.data import atomic_masses, chemical_symbols
 from ase.geometry import wrap_positions
 from lammps import lammps
 
+from wurtzite.atomic_structure import AtomicStructure
 from wurtzite.pairpot import PairPot, write_lammps_table
 from wurtzite.rotations import PrismRotation
 
 
 class LAMMPS:
-    def __init__(self, atoms: Atoms, units: str = "real"):
+    def __init__(self, structure: AtomicStructure, units: str = "real"):
 
         lmp = lammps(cmdargs="-screen none".split())
 
         # units, style, boundary:
-        boundary = " ".join(["p" if b else "f" for b in atoms.pbc])
-        lmp.commands_list([f"units {units}", "atom_style full", f"boundary {boundary}"])
+        pbc = structure.get_pbc()
+        lmp.commands_list([f"units {units}", "atom_style full", _pbc_to_str(pbc)])
 
         # rotate coordinates to LAMMPS "prism" style
-        cell, positions = ase_cell_to_lammps_prism(
-            atoms.pbc, atoms.cell, atoms.positions, units
+        prism, positions = ase_cell_to_lammps_prism(
+            pbc, structure.get_cell(), structure.get_positions(), units
         )
 
         # define region
         region_id = "cell"
-        lower = cell.flat[[0, 4, 8, 3, 6, 7]]
-        prism = "0 {} 0 {} 0 {} {} {} {}".format(*lower)
+        prism = "0 {} 0 {} 0 {} {} {} {}".format(*prism)
         lmp.command(f"region {region_id} prism {prism} units box")
 
         # create box
-        unique = np.unique(atoms.get_atomic_numbers())  # auto-sorted
+        numbers = structure.get_atomic_numbers()
+        unique = np.unique(numbers)  # auto-sorted
         lmp.command(f"create_box {len(unique)} {region_id}")
 
-        # create atoms
+        # create structure
         num2type = {z: i + 1 for i, z in enumerate(unique)}
-        types = list(map(num2type.get, atoms.numbers))
+        types = list(map(num2type.get, numbers))
         lmp.create_atoms(
-            n=len(atoms),
+            n=len(numbers),
             id=None,
             type=types,
             x=positions.reshape(-1),
@@ -61,12 +61,11 @@ class LAMMPS:
 
         #
         self._units = units
-        self._atoms = atoms
         self._lmp = lmp
-        self._cell = cell
-        self._positions = positions
         self._num2type = num2type
         self._sym2type = sym2type
+
+    # In-place:
 
     def _set(self, quantity: str, values: dict[str, Any]) -> None:
         for e, _v in values.items():
@@ -74,10 +73,10 @@ class LAMMPS:
             v = convert(_v, quantity, "ASE", self._units)
             self._lmp.command(f"set type {t} {quantity} {v}")
 
-    def set_charges(self, charges):
+    def set_charges_(self, charges: dict[str, float]) -> None:
         self._set("charge", charges)
 
-    def set_pair_coeffs(
+    def set_pair_coeffs_(
         self,
         pairpots: dict[tuple[str, str], PairPot],
         cutoff: float,
@@ -114,34 +113,29 @@ class LAMMPS:
 
         self._lmp.commands_list(commands)
 
+    def update_positions_(
+        self, pbc: tuple[bool, bool, bool], cell: np.ndarray, positions: np.ndarray
+    ) -> None:
+
+        prism, positions = ase_cell_to_lammps_prism(pbc, cell, positions, self._units)
+
+        # update box
+        box = " ".join([f"{a} final 0 {b}" for a, b in zip(["x", "y", "z"], prism[:3])])
+        tilt = " ".join(
+            [f"{a} final {b}" for a, b in zip(["xy", "xz", "yz"], prism[3:])]
+        )
+        self._lmp.command(f"change_box all {box} {tilt} {_pbc_to_str(pbc)}")
+
+        # update positions
+        self._lmp.scatter_atoms("x", 1, 3, array_c_ptr(positions.reshape(-1)))
+
+    # Thermo:
+
     def get_potential_energy(self, units: str = "ASE") -> float:
         self._lmp.command("run 0")
         e = self._lmp.get_thermo("pe")
         e = convert(e, "energy", self._units, units)
         return e
-
-    def update_atoms(self, atoms):
-        assert all(atoms.numbers == self._atoms.numbers)
-
-        cell, positions = ase_cell_to_lammps_prism(
-            atoms.pbc, atoms.cell, atoms.positions, self._units
-        )
-
-        # update box
-        lower = cell.flat[[0, 4, 8, 3, 6, 7]]
-        box = " ".join([f"{a} final 0 {b}" for a, b in zip(["x", "y", "z"], lower[:3])])
-        tilt = " ".join(
-            [f"{a} final {b}" for a, b in zip(["xy", "xz", "yz"], lower[3:])]
-        )
-        self._lmp.command(f"change_box all {box} {tilt}")
-
-        # update positions
-        self._lmp.scatter_atoms("x", 1, 3, array_c_ptr(positions.reshape(-1)))
-
-        #
-        self._atoms = atoms
-        self._cell = cell
-        self._positions = positions
 
 
 def ase_cell_to_lammps_prism(
@@ -152,20 +146,27 @@ def ase_cell_to_lammps_prism(
     """
     # rotate coordinates to LAMMPS "prism" style
     rotation = PrismRotation(cell)
-    prism_cell = rotation(cell)
-    prism_positions = rotation(positions)
+    rot_cell = rotation(cell)
+    rot_positions = rotation(positions)
 
     # wrap
     # TODO: don't wrap! use image numbers.
-    prism_positions = wrap_positions(prism_positions, prism_cell, pbc)
+    rot_positions = wrap_positions(rot_positions, rot_cell, pbc)
 
     # convert units
-    lammps_cell = convert(prism_cell, "distance", "ASE", units)
-    lammps_positions = convert(prism_positions, "distance", "ASE", units)
+    con_cell = convert(rot_cell, "distance", "ASE", units)
+    con_positions = convert(rot_positions, "distance", "ASE", units)
 
-    return lammps_cell, lammps_positions
+    # prism
+    assert np.allclose(con_cell.flat[[1, 2, 5]], 0)
+    prism = con_cell.flat[[0, 4, 8, 3, 6, 7]]
+    return prism, con_positions
 
 
 def array_c_ptr(arr):
     ptr = ctypes.POINTER(ctypes.c_double)
     return arr.astype(np.float64).ctypes.data_as(ptr)
+
+
+def _pbc_to_str(pbc: tuple[bool, bool, bool]) -> str:
+    return "boundary " + " ".join(["p" if b else "f" for b in pbc])

@@ -6,6 +6,7 @@ from typing import Sequence
 
 import numpy as np
 from ase import Atoms
+from ase.data import atomic_numbers
 
 from wurtzite.atomic_plane import AtomicPlane, HexagonalPlane, HexagonalPlane2
 
@@ -15,7 +16,7 @@ class AtomicStructure(abc.ABC):
     # For children:
 
     @abc.abstractmethod
-    def get_pbc(self) -> bool | tuple[bool, bool, bool]:
+    def get_pbc(self) -> tuple[bool, bool, bool]:
         ...
 
     @abc.abstractmethod
@@ -41,6 +42,12 @@ class AtomicStructure(abc.ABC):
         )
         return atoms
 
+    def get_atomic_numbers(self) -> Sequence[int]:
+        return tuple(atomic_numbers[s] for s in self.get_chemical_symbols())
+
+    def __len__(self) -> int:
+        return len(self.get_chemical_symbols())
+
     def get_volume(self) -> float:
         return abs(np.linalg.det(self.get_cell()))
 
@@ -52,8 +59,8 @@ class PlaneStacking(AtomicStructure):
 
     # From parents:
 
-    def get_pbc(self) -> bool:
-        return True
+    def get_pbc(self) -> tuple[bool, bool, bool]:
+        return 3 * (True,)
 
     def get_cell(self) -> np.ndarray:
         xy = self.get_planes()[0].get_xy_cell()
