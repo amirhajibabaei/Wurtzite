@@ -1,7 +1,7 @@
 # +
 from __future__ import annotations
 
-from wurtzite.bulk import PlaneStacking, WurtZite, WurtZite2
+from wurtzite.atomic_structure import PlaneStacking, WurtZite, WurtZite2
 
 
 def AgI_wurtzite0001(
@@ -27,10 +27,10 @@ def AgI_wurtzite0001(
     stack = _WurtZite(a, z1, z2, ("Ag", "I")).repeat(repeat)
 
     if not bulk_termination:
-        stack = stack.set_spacing(0, z1_Ag)
-        stack = stack.set_spacing(-2, z1_I)
+        stack = stack.with_spacing(0, z1_Ag)
+        stack = stack.with_spacing(-2, z1_I)
 
     if vacuum is not None:
-        stack = stack.set_spacing(-1, vacuum)
+        stack = stack.with_spacing(-1, vacuum)
 
     return stack

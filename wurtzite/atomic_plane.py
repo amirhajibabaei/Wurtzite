@@ -10,6 +10,9 @@ from ase.data import atomic_numbers
 
 
 class AtomicPlane(abc.ABC):
+
+    # For children:
+
     @abc.abstractmethod
     def get_xy_positions(self) -> np.ndarray:
         ...
@@ -22,7 +25,8 @@ class AtomicPlane(abc.ABC):
     def get_chemical_symbols(self) -> Sequence[str]:
         ...
 
-    # ****** derived methods ******
+    # Derived:
+
     def get_xyz_positions(self, z: float) -> np.ndarray:
         xy = self.get_xy_positions()
         z = np.full(xy.shape[0], z)
@@ -34,17 +38,15 @@ class AtomicPlane(abc.ABC):
     def __len__(self) -> int:
         return len(self.get_xy_positions())
 
-    # ****** compositions ******
-    def with_chemical_symbols(self, symbols: Sequence[str]) -> GenericPlane:
+    def with_chemical_symbols(self, symbols: str | Sequence[str]) -> GenericPlane:
         return GenericPlane(self.get_xy_positions(), self.get_xy_cell(), symbols)
 
     def repeat(self, repeat) -> Repetition:
         return Repetition(self, repeat)
 
-    def translate(self, tr) -> Translation:
+    def translate(self, tr: tuple[float, float]) -> Translation:
         return Translation(self, tr)
 
-    # ****** ASE compatiability ******
     def as_ase_atoms(self, z=10.0) -> Atoms:
         _cell = np.c_[self.get_xy_cell(), [0, 0]]
         cell = np.r_[_cell, [[0, 0, 2 * z]]]
@@ -75,14 +77,16 @@ class GenericPlane(AtomicPlane):
         self._symbols = tuple(symbols)
         self._xy_cell = xy_cell
 
-    def get_chemical_symbols(self) -> Sequence[str]:
-        return self._symbols
+    # From parents:
 
     def get_xy_positions(self) -> np.ndarray:
         return self._xy
 
     def get_xy_cell(self) -> np.ndarray:
         return self._xy_cell
+
+    def get_chemical_symbols(self) -> Sequence[str]:
+        return self._symbols
 
 
 class _PlaneMixin:
@@ -153,6 +157,8 @@ class Translation(_PlaneMixin, AtomicPlane):
         self._plane = plane
         self._tr = tr
 
+    # Overloads:
+
     def get_xy_positions(self) -> np.ndarray:
         return self._plane.get_xy_positions() + self._tr
 
@@ -171,9 +177,7 @@ class Repetition(_PlaneMixin, AtomicPlane):
         self._plane = plane
         self._repeat = _repeat_tuple(repeat)
 
-    def get_chemical_symbols(self) -> Sequence[str]:
-        return self._plane.get_chemical_symbols() * np.prod(self._repeat)
-
+    # From parents:
     def get_xy_positions(self) -> np.ndarray:
         a, b = self._plane.get_xy_cell()
         _xy = self._plane.get_xy_positions()
@@ -188,41 +192,52 @@ class Repetition(_PlaneMixin, AtomicPlane):
         repeat = np.asarray(self._repeat).reshape(2, 1)
         return repeat * self._plane.get_xy_cell()
 
+    def get_chemical_symbols(self) -> Sequence[str]:
+        return self._plane.get_chemical_symbols() * np.prod(self._repeat)
+
+    # Overloads:
+
     def repeat(self, repeat: int | tuple[int, int]) -> Repetition:
         a1, b1 = _repeat_tuple(repeat)
         a2, b2 = self._repeat
         return Repetition(self._plane, (a1 * a2, b1 * b2))
 
-    def get_section(
+    # Derived:
+
+    def mask_of_block(
         self, nxy: int | tuple[int, int], *, origin: int | tuple[int, int] = 0
     ) -> Sequence[bool]:
         rx, ry = self._repeat
         nx, ny = _repeat_tuple(nxy)
         ox, oy = _repeat_tuple(origin)
         n = len(self._plane)
-        sec = []
+        block = []
         for i in range(rx):
             ii = i - ox
             for j in range(ry):
                 jj = j - oy
                 if ii >= 0 and ii < nx and jj >= 0 and jj < ny:
-                    sec.extend(n * [True])
+                    block.extend(n * [True])
                 else:
-                    sec.extend(n * [False])
-        return sec
+                    block.extend(n * [False])
+        return block
 
-    def set_section_symbols(
+    def with_block_symbols(
         self,
         nxy: int | tuple[int, int],
         symbol: str,
         *,
         origin: int | tuple[int, int] = 0,
     ) -> GenericPlane:
-        mask = self.get_section(nxy, origin=origin)
+        mask = self.mask_of_block(nxy, origin=origin)
         symbols = tuple(
             symbol if m else s for m, s in zip(mask, self.get_chemical_symbols())
         )
         return GenericPlane(self.get_xy_positions(), self.get_xy_cell(), symbols)
+
+    def __repr__(self):
+        nx, ny = self._repeat
+        return f"Repetition({nx}, {ny})"
 
 
 def test_planes() -> bool:
