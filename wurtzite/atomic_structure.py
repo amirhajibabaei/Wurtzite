@@ -53,8 +53,19 @@ class AtomicStructure(abc.ABC):
 
 
 class DynamicStructure(AtomicStructure):
+
+    # For children:
+
     @abc.abstractmethod
     def set_positions(self, positions: np.ndarray) -> None:
+        ...
+
+    @abc.abstractmethod
+    def set_cell(self, cell: np.ndarray) -> None:
+        ...
+
+    @abc.abstractmethod
+    def set_pbc(self, pbc: bool | tuple[bool, bool, bool]) -> None:
         ...
 
 

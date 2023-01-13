@@ -63,7 +63,7 @@ def _create_lammps(
     return lmp, types
 
 
-def _update_lammps(
+def _update_lammps_positions(
     lmp: lammps,
     pbc: tuple[bool, bool, bool],
     cell: np.ndarray,
@@ -74,9 +74,9 @@ def _update_lammps(
     prism, positions = _get_prism_coordinates(pbc, cell, positions, units)
 
     # update box
-    box = " ".join([f"{a} final 0 {b}" for a, b in zip(["x", "y", "z"], prism[:3])])
-    tilt = " ".join([f"{a} final {b}" for a, b in zip(["xy", "xz", "yz"], prism[3:])])
-    lmp.command(f"change_box all {box} {tilt} {_pbc_to_str(pbc)}")
+    # box = " ".join([f"{a} final 0 {b}" for a, b in zip(["x", "y", "z"], prism[:3])])
+    # tilt = " ".join([f"{a} final {b}" for a, b in zip(["xy", "xz", "yz"], prism[3:])])
+    # lmp.command(f"change_box all {box} {tilt} {_pbc_to_str(pbc)}")
 
     # update positions
     lmp.scatter_atoms("x", 1, 3, _array_c_ptr(positions.reshape(-1)))

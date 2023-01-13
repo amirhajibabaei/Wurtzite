@@ -76,7 +76,9 @@ class FullStyle(LAMMPS):
         return self._symbols
 
     def set_positions(self, positions: np.ndarray) -> None:
-        backend._update_lammps(self._lmp, self._pbc, self._cell, positions, self._units)
+        backend._update_lammps_positions(
+            self._lmp, self._pbc, self._cell, positions, self._units
+        )
         self._positions = positions
 
     def set_cell(self, cell: np.ndarray) -> None:
