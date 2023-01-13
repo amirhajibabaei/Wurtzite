@@ -7,7 +7,7 @@ from typing import Iterable, Sequence
 
 from ase.calculators.lammps import convert
 
-from wurtzite.lammps2.table_io import write_lammps_table
+from wurtzite.lammps.table_io import write_lammps_table
 from wurtzite.pairpot import PairPot
 
 

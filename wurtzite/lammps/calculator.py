@@ -1,8 +1,8 @@
 # +
 from ase.calculators.calculator import Calculator, all_changes
 
-from wurtzite.lammps2.forcefield import ForceField
-from wurtzite.lammps2.structure import FullStyle
+from wurtzite.lammps.forcefield import ForceField
+from wurtzite.lammps.structure import FullStyle
 
 
 class PairStyleCalculator(Calculator):

@@ -8,9 +8,9 @@ import numpy as np
 from ase.calculators.lammps import convert
 from lammps import lammps
 
-import wurtzite.lammps2._backend as backend
+import wurtzite.lammps._backend as backend
 from wurtzite.atomic_structure import AtomicStructure, DynamicStructure
-from wurtzite.lammps2.forcefield import ForceField
+from wurtzite.lammps.forcefield import ForceField
 
 
 class LAMMPS(DynamicStructure):
