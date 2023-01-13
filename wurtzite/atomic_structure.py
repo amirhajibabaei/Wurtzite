@@ -52,7 +52,13 @@ class AtomicStructure(abc.ABC):
         return abs(np.linalg.det(self.get_cell()))
 
 
-AtomicStructure.register(Atoms)
+class DynamicStructure(AtomicStructure):
+    @abc.abstractmethod
+    def set_positions(self, positions: np.ndarray) -> None:
+        ...
+
+
+DynamicStructure.register(Atoms)
 
 
 class PlaneStacking(AtomicStructure):

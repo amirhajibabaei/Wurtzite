@@ -29,7 +29,7 @@ class ForceField(abc.ABC):
 
     # Derived:
 
-    def apply(self, units: str, types: dict[str, int]) -> Sequence[str]:
+    def get_commands(self, units: str, types: dict[str, int]) -> Sequence[str]:
         return [self.get_pair_style(units), *self.get_pair_coeff(units, types)]
 
     # Utility:
@@ -48,10 +48,9 @@ class ForceField(abc.ABC):
             chemical symbol to values mapping e.g. charge {"H": +1, "O": -2, ...}
         """
         commands = []
-        for s, _v in values.items():
-            t = types[s]
-            v = convert(_v, quantity, "ASE", units)
-            commands.append(f"set type {t} {quantity} {v}")
+        for symbol, type_ in types.items():
+            v = convert(values[symbol], quantity, "ASE", units)
+            commands.append(f"set type {type_} {quantity} {v}")
         return commands
 
 
