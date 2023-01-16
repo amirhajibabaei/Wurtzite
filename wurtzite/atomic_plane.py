@@ -47,6 +47,11 @@ class AtomicPlane(abc.ABC):
     def translate(self, tr: tuple[float, float]) -> Translation:
         return Translation(self, tr)
 
+    def permute(self, perm: Sequence[int]) -> GenericPlane:
+        symbols = self.get_chemical_symbols()
+        new = [symbols[i] for i in perm]
+        return self.with_chemical_symbols(new)
+
     def to_ase_atoms(self, z=10.0) -> Atoms:
         _cell = np.c_[self.get_xy_cell(), [0, 0]]
         cell = np.r_[_cell, [[0, 0, 2 * z]]]
