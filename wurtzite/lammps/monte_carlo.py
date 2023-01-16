@@ -1,4 +1,6 @@
 # +
+from __future__ import annotations
+
 import ctypes
 
 import lammps.constants as const
@@ -8,31 +10,42 @@ from ase.calculators.lammps import convert
 from wurtzite.atomic_structure import AtomicStructure
 from wurtzite.lammps.force_field import ForceField
 from wurtzite.lammps.structure import FullStyle
+from wurtzite.pair_potential import pairings
 
 
 def lattice_monte_carlo(
     structure: AtomicStructure,
     forcefield: ForceField,
-    index_range: tuple[int, int],
-    pair: tuple[str, str],
     temperature: float,
     steps: int,
+    *,
+    pairs: tuple[tuple[str, str], ...] | None = None,
+    index_range: tuple[int, int] | None = None,
     random_seed: int = 57465456,
     every: int = 1,
     attempts: int = 1,
 ) -> tuple[float, float, tuple[str, ...]]:
+    """
+    Returns:
+        acceptance_ratio
+        minimum_energy (eV)
+        optimal_arrangement (symbols)
+
+    """
 
     # create a LAMMPS instance
     struc = FullStyle.from_atomic_structure(structure)
     struc.set_forcefield(forcefield)
-    lmp = struc._lmp  # TODO: it is not recommended to use hidden attributes
+    lmp = struc._lmp  # TODO: it is not recommended to use the hidden attributes!
     sym2type = struc.get_types()
     type2sym = {t: s for s, t in sym2type.items()}
     symbols = struc.get_chemical_symbols()
+    if index_range is None:
+        index_range = (0, len(struc))
     subset_symbols = [symbols[i] for i in range(*index_range)]
 
     # Initial state:
-    lmp.command("run 0")
+    lmp.commands_list(["thermo_style custom pe ", "thermo 1", "run 0"])
     optimum = [
         lmp.get_thermo("pe"),
         np.array([sym2type[s] for s in subset_symbols]),
@@ -41,17 +54,17 @@ def lattice_monte_carlo(
     # Mote-Carlo setups
     fix_swap = "f_swap"
     group = "active"
-    lmp_pair_types = " ".join([str(sym2type[s]) for s in pair])
-    lmp.commands_list(
-        [
-            "thermo_style custom pe ",
-            "thermo 1",
-            f"group {group} id {index_range[0]+1}:{index_range[1]}",
+    lmp.command(f"group {group} id {index_range[0]+1}:{index_range[1]}")
+    if pairs is None:
+        pairs = pairings(set(subset_symbols), self_interaction=False)
+    for (a, b) in pairs:
+        assert a != b
+        lmp_pair_types = f"{sym2type[a]} {sym2type[b]}"
+        lmp.command(
             f"fix {fix_swap} {group} atom/swap "
             f"{every} {attempts} {random_seed} {temperature} "
-            f"types {lmp_pair_types} ke no semi-grand no ",
-        ]
-    )
+            f"types {lmp_pair_types} ke no semi-grand no "
+        )
 
     # Extenral setups
     ids = list(range(index_range[0] + 1, index_range[1] + 1))

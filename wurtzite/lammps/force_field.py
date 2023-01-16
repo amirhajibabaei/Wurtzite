@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import abc
-import itertools
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from ase.calculators.lammps import convert
 
 from wurtzite.lammps.table_io import write_lammps_table
-from wurtzite.pair_potential import PairPotential
+from wurtzite.pair_potential import PairPotential, pairings
 
 
 class ForceField(abc.ABC):
@@ -115,9 +114,3 @@ class CoulTableHybrid(ForceField):
         if self._kspace is not None:
             commands.append(f"kspace_style {self._kspace}")
         return commands
-
-
-def pairings(keys: Iterable):
-    a = tuple((k, k) for k in keys)
-    b = tuple(itertools.combinations(keys, 2))
-    return (*a, *b)
