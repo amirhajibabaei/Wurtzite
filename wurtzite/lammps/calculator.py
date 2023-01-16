@@ -1,7 +1,7 @@
 # +
 from ase.calculators.calculator import Calculator, all_changes
 
-from wurtzite.lammps.forcefield import ForceField
+from wurtzite.lammps.force_field import ForceField
 from wurtzite.lammps.structure import FullStyle
 
 
@@ -18,7 +18,7 @@ class PairStyleCalculator(Calculator):
 
         if "numbers" in system_changes:
             self._lmp = FullStyle.from_atomic_structure(self.atoms)
-            self._lmp.apply_forcefield_(self._ff)
+            self._lmp.set_forcefield(self._ff)
         else:
             if "pbc" in system_changes:
                 self._lmp.set_pbc(self.atoms.pbc)

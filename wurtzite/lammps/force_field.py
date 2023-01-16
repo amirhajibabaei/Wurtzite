@@ -8,7 +8,7 @@ from typing import Iterable, Sequence
 from ase.calculators.lammps import convert
 
 from wurtzite.lammps.table_io import write_lammps_table
-from wurtzite.pairpot import PairPot
+from wurtzite.pair_potential import PairPotential
 
 
 class ForceField(abc.ABC):
@@ -57,7 +57,7 @@ class ForceField(abc.ABC):
 class CoulTableHybrid(ForceField):
     def __init__(
         self,
-        pairpots: dict[tuple[str, str], PairPot],
+        pairpots: dict[tuple[str, str], PairPotential],
         cutoff: float,
         charges: dict[str, float],
         kspace_style: str | None = "pppm 1e-4",
@@ -85,13 +85,13 @@ class CoulTableHybrid(ForceField):
         self._charges = charges
         self._kspace = kspace_style
 
-    def get_pair_style(self, units):
+    def get_pair_style(self, units: str) -> str:
         cutoff = convert(self._cutoff, "distance", "ASE", units)
         return (
             f"pair_style hybrid/overlay coul/long {cutoff} table linear {self._table_N}"
         )
 
-    def get_pair_coeff(self, units, types):
+    def get_pair_coeff(self, units: str, types: dict[str, int]) -> Sequence[str]:
         cutoff = convert(self._cutoff, "distance", "ASE", units)
         commands = []
 

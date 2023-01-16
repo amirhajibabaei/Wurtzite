@@ -10,7 +10,7 @@ from lammps import lammps
 
 import wurtzite.lammps._backend as backend
 from wurtzite.atomic_structure import AtomicStructure, DynamicStructure
-from wurtzite.lammps.forcefield import ForceField
+from wurtzite.lammps.force_field import ForceField
 
 
 class LAMMPS(DynamicStructure):
@@ -25,7 +25,7 @@ class LAMMPS(DynamicStructure):
     def get_types(self) -> dict[str, int]:
         ...
 
-    def apply_forcefield_(self, ff: ForceField) -> None:
+    def set_forcefield(self, ff: ForceField) -> None:
         self._lmp.commands_list(ff.get_commands(self.get_units(), self.get_types()))
 
     def get_potential_energy(self, units: str = "ASE") -> float:

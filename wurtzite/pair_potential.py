@@ -6,7 +6,7 @@ import abc
 import numpy as np
 
 
-class PairPot(abc.ABC):
+class PairPotential(abc.ABC):
     """
     ASE units are assumed
         distance: A (Angstrom)
@@ -28,7 +28,7 @@ class ZeroPot(abc.ABC):
         return np.zeros_like(r), np.zeros_like(r)
 
 
-class _rePRV(PairPot):
+class _rePRV(PairPotential):
     """
     Reparameterized Parrinello–Rahman–Vashista potential
     """

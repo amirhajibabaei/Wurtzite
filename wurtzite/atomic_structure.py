@@ -147,6 +147,13 @@ class PlaneStacking(AtomicStructure):
         spacings = nz * list(self.get_spacings())
         return GenericStacking(planes, spacings)
 
+    def index_range(self, plane_index: int) -> tuple[int, int]:
+        planes = self.get_planes()
+        index = plane_index % len(planes)
+        i = sum([len(p) for p in planes[:index]])
+        j = i + len(planes[index])
+        return i, j
+
 
 class _StackingMixin:
     _planes: Sequence[AtomicPlane]

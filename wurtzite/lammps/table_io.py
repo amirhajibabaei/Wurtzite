@@ -6,11 +6,11 @@ from io import StringIO
 import numpy as np
 from ase.calculators.lammps import convert
 
-from wurtzite.pairpot import PairPot
+from wurtzite.pair_potential import PairPotential
 
 
 def write_lammps_table(
-    pairpots: dict[tuple[str, str], PairPot],
+    pairpots: dict[tuple[str, str], PairPotential],
     units: str,
     file: str,
     rmin: float = 0.1,
