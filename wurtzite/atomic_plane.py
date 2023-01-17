@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import abc
+from collections import Counter
 from collections.abc import Sequence
 
 import numpy as np
@@ -38,7 +39,7 @@ class AtomicPlane(abc.ABC):
     def __len__(self) -> int:
         return len(self.get_xy_positions())
 
-    def with_chemical_symbols(self, symbols: str | Sequence[str]) -> GenericPlane:
+    def with_chemical_symbols(self, symbols: str | Sequence[str]) -> AtomicPlane:
         return GenericPlane(self.get_xy_positions(), self.get_xy_cell(), symbols)
 
     def repeat(self, repeat) -> Repetition:
@@ -50,7 +51,7 @@ class AtomicPlane(abc.ABC):
     def merge(self, other: AtomicPlane) -> Merge:
         return Merge(self, other)
 
-    def permute(self, perm: Sequence[int]) -> GenericPlane:
+    def permute(self, perm: Sequence[int]) -> AtomicPlane:
         symbols = self.get_chemical_symbols()
         new = [symbols[i] for i in perm]
         return self.with_chemical_symbols(new)
@@ -65,6 +66,9 @@ class AtomicPlane(abc.ABC):
             pbc=True,
         )
         return atoms
+
+    def count(self) -> Counter:
+        return Counter(self.get_chemical_symbols())
 
 
 class GenericPlane(AtomicPlane):
@@ -120,6 +124,22 @@ class Merge(AtomicPlane):
             *self._plane_2.get_chemical_symbols(),
         )
         return symbols
+
+    # Overloads:
+
+    def with_chemical_symbols(self, symbols: str | Sequence[str]) -> Merge:
+        s1: str | Sequence[str]
+        s2: str | Sequence[str]
+        if type(symbols) == str:
+            s1 = s2 = symbols
+        elif isinstance(symbols, Sequence):
+            s1 = symbols[: len(self._plane_1)]
+            s2 = symbols[len(self._plane_1) :]
+        else:
+            raise RuntimeError("In Merge ...!")
+        p1 = self._plane_1.with_chemical_symbols(s1)
+        p2 = self._plane_2.with_chemical_symbols(s2)
+        return Merge(p1, p2)
 
 
 class _PlaneMixin:
