@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import abc
+import os
 from typing import Sequence
 
 from ase.calculators.lammps import convert
@@ -61,7 +62,7 @@ class CoulTableHybrid(ForceField):
         charges: dict[str, float],
         kspace_style: str | None = "pppm 1e-4",
         table_dr: float = 0.01,
-        table_name: str = "forcefield.table",
+        table_name: str = "_pair.table",
         table_shift: bool = True,
         table_units: str = "real",
     ):
@@ -83,6 +84,10 @@ class CoulTableHybrid(ForceField):
         self._cutoff = cutoff
         self._charges = charges
         self._kspace = kspace_style
+
+    def __del__(self):
+        if os.path.isfile(self._table_name):
+            os.system(f"rm -f {self._table_name}")
 
     def get_pair_style(self, units: str) -> str:
         cutoff = convert(self._cutoff, "distance", "ASE", units)

@@ -45,7 +45,7 @@ def lattice_monte_carlo(
     subset_symbols = [symbols[i] for i in range(*index_range)]
 
     # Initial state:
-    lmp.commands_list(["thermo_style custom pe ", "thermo 1", "run 0"])
+    lmp.commands_list(["thermo_style custom step pe ", "thermo 1", "run 0"])
     optimum = [
         lmp.get_thermo("pe"),
         np.array([sym2type[s] for s in subset_symbols]),

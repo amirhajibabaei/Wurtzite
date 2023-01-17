@@ -48,7 +48,7 @@ def _create_lammps(
         n=xyz.shape[0],
         id=list(range(1, xyz.shape[0] + 1)),
         type=list(map(types.get, symbols)),
-        x=xyz.reshape(-1),
+        x=xyz.reshape(-1).tolist(),
         v=None,
         image=None,
         shrinkexceed=False,

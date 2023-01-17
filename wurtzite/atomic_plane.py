@@ -47,6 +47,9 @@ class AtomicPlane(abc.ABC):
     def translate(self, tr: tuple[float, float]) -> Translation:
         return Translation(self, tr)
 
+    def merge(self, other: AtomicPlane) -> Merge:
+        return Merge(self, other)
+
     def permute(self, perm: Sequence[int]) -> GenericPlane:
         symbols = self.get_chemical_symbols()
         new = [symbols[i] for i in perm]
@@ -92,6 +95,31 @@ class GenericPlane(AtomicPlane):
 
     def get_chemical_symbols(self) -> Sequence[str]:
         return self._symbols
+
+
+class Merge(AtomicPlane):
+    def __init__(self, plane_1: AtomicPlane, plane_2: AtomicPlane):
+        assert np.allclose(plane_1.get_xy_cell(), plane_2.get_xy_cell())
+        self._plane_1 = plane_1
+        self._plane_2 = plane_2
+
+    # From parents:
+
+    def get_xy_cell(self) -> np.ndarray:
+        return self._plane_1.get_xy_cell()
+
+    def get_xy_positions(self) -> np.ndarray:
+        xy = np.concatenate(
+            [self._plane_1.get_xy_positions(), self._plane_2.get_xy_positions()]
+        )
+        return xy
+
+    def get_chemical_symbols(self) -> Sequence[str]:
+        symbols = (
+            *self._plane_1.get_chemical_symbols(),
+            *self._plane_2.get_chemical_symbols(),
+        )
+        return symbols
 
 
 class _PlaneMixin:
