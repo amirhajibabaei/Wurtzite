@@ -42,7 +42,7 @@ class AtomicPlane(abc.ABC):
     def with_chemical_symbols(self, symbols: str | Sequence[str]) -> AtomicPlane:
         return GenericPlane(self.get_xy_positions(), self.get_xy_cell(), symbols)
 
-    def repeat(self, repeat) -> Repetition:
+    def repeat(self, repeat) -> AtomicPlane:
         return Repetition(self, repeat)
 
     def translate(self, tr: tuple[float, float]) -> Translation:
@@ -140,6 +140,9 @@ class Merge(AtomicPlane):
         p1 = self._plane_1.with_chemical_symbols(s1)
         p2 = self._plane_2.with_chemical_symbols(s2)
         return Merge(p1, p2)
+
+    def repeat(self, repeat) -> Merge:
+        return Merge(self._plane_1.repeat(repeat), self._plane_2.repeat(repeat))
 
 
 class _PlaneMixin:
