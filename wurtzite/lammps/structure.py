@@ -6,10 +6,10 @@ from typing import Sequence
 
 import numpy as np
 from ase.calculators.lammps import convert
-from lammps import lammps
 
 import wurtzite.lammps._backend as backend
 from wurtzite.atomic_structure import AtomicStructure, DynamicStructure
+from wurtzite.lammps._backend import lammps
 from wurtzite.lammps.fix import Fix
 from wurtzite.lammps.force_field import ForceField
 

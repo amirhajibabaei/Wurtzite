@@ -8,9 +8,41 @@ import numpy as np
 from ase.calculators.lammps import convert
 from ase.data import atomic_masses, atomic_numbers
 from ase.geometry import wrap_positions
-from lammps import lammps
+from lammps import lammps as _lammps
 
 from wurtzite.rotations import PrismRotation
+
+
+class lammps(_lammps):
+    _history: list[str] | None = None
+    _ignore: list[str] = ["#", "change_box", "run"]
+
+    def command(self, cmd: str) -> None:
+        super().command(cmd)
+        self._memorize([cmd])
+
+    def commands_list(self, cmdlist: Sequence[str]) -> None:
+        super().commands_list(cmdlist)
+        self._memorize(cmdlist)
+
+    def commands_string(self, multicmd: str) -> None:
+        super().commands_string(multicmd)
+        self._memorize(multicmd.split("\n"))
+
+    def _memorize(self, cmdlist: Sequence[str]) -> None:
+        if self._history is None:
+            self._history = []
+        for _cmd in cmdlist:
+            cmd = _cmd.strip()
+            ignore = any([cmd.startswith(ignore) for ignore in self._ignore])
+            if not ignore:
+                self._history.append(cmd)
+
+    def history(self) -> str:
+        if self._history is None:
+            return ""
+        else:
+            return "\n".join(self._history)
 
 
 def _create_lammps(
