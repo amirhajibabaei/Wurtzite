@@ -10,6 +10,7 @@ from lammps import lammps
 
 import wurtzite.lammps._backend as backend
 from wurtzite.atomic_structure import AtomicStructure, DynamicStructure
+from wurtzite.lammps.fix import Fix
 from wurtzite.lammps.force_field import ForceField
 
 
@@ -28,6 +29,9 @@ class LAMMPS(DynamicStructure):
     def set_forcefield(self, ff: ForceField) -> None:
         self._lmp.commands_list(ff.get_commands(self.get_units(), self.get_types()))
 
+    def set_fix(self, fix: Fix) -> None:
+        self._lmp.commands_list(fix.get_commands(self.get_units()))
+
     def get_potential_energy(self, units: str = "ASE") -> float:
         self._lmp.command("run 0")
         e = self._lmp.get_thermo("pe")
@@ -43,11 +47,13 @@ class FullStyle(LAMMPS):
         symbols: Sequence[str],
         pbc: bool | tuple[bool, bool, bool],
         units: str | None = None,
+        log: str = "none",
+        screen: str = "none",
     ):
         if units is None:
             units = self._default_units
         self._lmp, self._types = backend._create_lammps(
-            positions, cell, symbols, pbc, units
+            positions, cell, symbols, pbc, units, log, screen
         )
         self._positions = positions
         self._cell = cell
@@ -94,11 +100,12 @@ class FullStyle(LAMMPS):
 
     @staticmethod
     def from_atomic_structure(
-        struc: AtomicStructure, units: str | None = None
+        struc: AtomicStructure, units: str | None = None, **kwargs
     ) -> FullStyle:
         return FullStyle(
             struc.get_positions(),
             struc.get_cell(),
             struc.get_chemical_symbols(),
             struc.get_pbc(),
+            **kwargs,
         )

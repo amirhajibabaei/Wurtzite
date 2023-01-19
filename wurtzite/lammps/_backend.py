@@ -19,6 +19,8 @@ def _create_lammps(
     symbols: Sequence[str],
     pbc: bool | tuple[bool, bool, bool],
     units: str,
+    log: str = "none",
+    screen: str = "none",
 ) -> tuple[lammps, dict[str, int]]:
 
     # process args
@@ -29,7 +31,7 @@ def _create_lammps(
     types = {symbol: index + 1 for index, symbol in enumerate(np.unique(symbols))}
 
     # create the LAMMPS object
-    lmp = lammps(cmdargs="-screen none".split())
+    lmp = lammps(cmdargs=f"-log {log} -screen {screen}".split())
     lmp.commands_list(
         [
             f"units {units}",  # units
@@ -151,3 +153,15 @@ def _pbc_tuple(pbc: bool | tuple[bool, bool, bool]) -> tuple[bool, bool, bool]:
         return (pbc[0], pbc[1], pbc[2])
     else:
         raise RuntimeError(f"got {pbc} for pbc!")
+
+
+_qqr2e = {
+    "lj": 1.0,
+    "real": 332.06371,
+    "metal": 14.399645,
+    "si": 8987600000.0,
+    "cgs": 1.0,
+    "electron": 1.0,
+    "micro": 8987556.0,
+    "nano": 230.7078669,
+}
