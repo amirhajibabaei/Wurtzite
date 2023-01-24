@@ -24,7 +24,7 @@ def lattice_monte_carlo(
     random_seed: int = 57465456,
     every: int = 1,
     attempts: int = 1,
-) -> tuple[float, float, tuple[str, ...]]:
+) -> tuple[dict[tuple[str, str], float], float, tuple[str, ...]]:
     """
     Returns:
         acceptance_ratio
@@ -61,7 +61,7 @@ def lattice_monte_carlo(
         assert a != b
         lmp_pair_types = f"{sym2type[a]} {sym2type[b]}"
         lmp.command(
-            f"fix {fix_swap} {group} atom/swap "
+            f"fix {fix_swap}_{a}_{b} {group} atom/swap "
             f"{every} {attempts} {random_seed} {temperature} "
             f"types {lmp_pair_types} ke no semi-grand no "
         )
@@ -90,14 +90,16 @@ def lattice_monte_carlo(
     lmp.command(f"run {steps}")
 
     # Return:
-    ntry = lmp.numpy.extract_fix(
-        fix_swap, const.LMP_STYLE_GLOBAL, const.LMP_TYPE_VECTOR, nrow=0
-    )
-    nsuccess = lmp.numpy.extract_fix(
-        fix_swap, const.LMP_STYLE_GLOBAL, const.LMP_TYPE_VECTOR, nrow=1
-    )
-
-    ratio = nsuccess / ntry
+    ratio: dict[tuple[str, str], float] = {}
+    for (a, b) in pairs:
+        fid = f"{fix_swap}_{a}_{b}"
+        ntry = lmp.numpy.extract_fix(
+            fid, const.LMP_STYLE_GLOBAL, const.LMP_TYPE_VECTOR, nrow=0
+        )
+        nsuccess = lmp.numpy.extract_fix(
+            fid, const.LMP_STYLE_GLOBAL, const.LMP_TYPE_VECTOR, nrow=1
+        )
+        ratio[(a, b)] = nsuccess / ntry
     energy_opt = convert(optimum[0], "energy", lmp.extract_global("units"), "ASE")
     symbols_opt = tuple((type2sym[t] for t in optimum[1]))
     return ratio, energy_opt, symbols_opt

@@ -8,7 +8,13 @@ import numpy as np
 from ase import Atoms
 from ase.data import atomic_numbers
 
-from wurtzite.atomic_plane import AtomicPlane, HexagonalPlane, HexagonalPlane2
+import wurtzite.view as view
+from wurtzite.atomic_plane import (
+    AtomicPlane,
+    HexagonalPlane,
+    HexagonalPlane2,
+    xy_cells_are_close,
+)
 
 
 class AtomicStructure(abc.ABC):
@@ -50,6 +56,9 @@ class AtomicStructure(abc.ABC):
 
     def get_volume(self) -> float:
         return abs(np.linalg.det(self.get_cell()))
+
+    def view(self) -> view.View | None:
+        return view.view(self)
 
 
 class DynamicStructure(AtomicStructure):
@@ -120,7 +129,7 @@ class PlaneStacking(AtomicStructure):
         _planes = self.get_planes()
         index = index % len(_planes)
         planes = tuple(plane if i == index else p for i, p in enumerate(_planes))
-        assert all_xy_cells_are_identical(planes)
+        assert xy_cells_are_close(planes)
         return GenericStacking(planes, self.get_spacings())
 
     def with_spacing(self, index: int, spacing: float) -> GenericStacking:
@@ -128,6 +137,11 @@ class PlaneStacking(AtomicStructure):
         index = index % len(_spacings)
         spacings = tuple(spacing if i == index else s for i, s in enumerate(_spacings))
         return GenericStacking(self.get_planes(), spacings)
+
+    def with_swaped_planes(self, i: int, j: int) -> GenericStacking:
+        a = self.get_plane(i)
+        b = self.get_plane(j)
+        return self.with_plane(i, b).with_plane(j, a)
 
     def _get_z(self) -> list[float]:
         z = [0.0]
@@ -169,14 +183,9 @@ class _StackingMixin:
 class GenericStacking(_StackingMixin, PlaneStacking):
     def __init__(self, planes: Sequence[AtomicPlane], spacings: Sequence[float]):
         assert len(planes) == len(spacings)
-        assert all_xy_cells_are_identical(planes)
+        assert xy_cells_are_close(planes)
         self._planes = tuple(planes)
         self._spacings = tuple(spacings)
-
-
-def all_xy_cells_are_identical(planes) -> bool:
-    cells = np.stack([plane.get_xy_cell() for plane in planes])
-    return np.allclose(cells - cells[0], 0)
 
 
 class WurtZite(_StackingMixin, PlaneStacking):

@@ -9,6 +9,8 @@ import numpy as np
 from ase import Atoms
 from ase.data import atomic_numbers
 
+import wurtzite.view as view
+
 
 class AtomicPlane(abc.ABC):
 
@@ -69,6 +71,9 @@ class AtomicPlane(abc.ABC):
 
     def count(self) -> Counter:
         return Counter(self.get_chemical_symbols())
+
+    def view(self) -> view.View | None:
+        return view.view(self)
 
 
 class GenericPlane(AtomicPlane):
@@ -309,6 +314,11 @@ def test_planes() -> bool:
         p2 = p.with_chemical_symbols(len(p) * ["He"])
         assert p1.get_chemical_symbols() == p2.get_chemical_symbols()
     return True
+
+
+def xy_cells_are_close(planes) -> bool:
+    cells = np.stack([plane.get_xy_cell() for plane in planes])
+    return np.allclose(cells - cells[0], 0)
 
 
 if __name__ == "__main__":
