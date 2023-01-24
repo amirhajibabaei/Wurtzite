@@ -8,7 +8,8 @@ from typing import Sequence
 from ase.calculators.lammps import convert
 
 from wurtzite.lammps.table_io import write_lammps_table
-from wurtzite.pair_potential import PairPotential, pairings
+from wurtzite.pair_potential import PairPotential
+from wurtzite.tools import pairings
 
 
 class ForceField(abc.ABC):

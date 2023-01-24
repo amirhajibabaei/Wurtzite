@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import abc
-import itertools
-from typing import Iterable
 
 import numpy as np
 
@@ -70,12 +68,3 @@ class rePRV(_rePRV):
         except KeyError:
             raise RuntimeError(f"rePRV is not defined for {a}, {b}")
         super().__init__(*par)
-
-
-def pairings(keys: Iterable[str], self_interaction=True) -> tuple[tuple[str, str], ...]:
-    x = tuple(itertools.combinations(keys, 2))
-    if self_interaction:
-        y = tuple((k, k) for k in keys)
-        return (*y, *x)
-    else:
-        return x

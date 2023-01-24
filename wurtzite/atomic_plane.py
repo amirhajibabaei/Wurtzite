@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import abc
+import itertools
 from collections import Counter
 from collections.abc import Sequence
 
@@ -9,6 +10,7 @@ import numpy as np
 from ase import Atoms
 from ase.data import atomic_numbers
 
+import wurtzite.tools as tools
 import wurtzite.view as view
 
 
@@ -50,8 +52,8 @@ class AtomicPlane(abc.ABC):
     def translate(self, tr: tuple[float, float]) -> Translation:
         return Translation(self, tr)
 
-    def merge(self, other: AtomicPlane) -> Merge:
-        return Merge(self, other)
+    def merge(self, *others: AtomicPlane) -> Merge:
+        return Merge(self, *others)
 
     def permute(self, perm: Sequence[int]) -> AtomicPlane:
         symbols = self.get_chemical_symbols()
@@ -107,47 +109,48 @@ class GenericPlane(AtomicPlane):
 
 
 class Merge(AtomicPlane):
-    def __init__(self, plane_1: AtomicPlane, plane_2: AtomicPlane):
-        assert np.allclose(plane_1.get_xy_cell(), plane_2.get_xy_cell())
-        self._plane_1 = plane_1
-        self._plane_2 = plane_2
+    def __init__(self, *planes: AtomicPlane):
+        assert xy_cells_are_close(planes)
+        self._planes = planes
 
     # From parents:
 
     def get_xy_cell(self) -> np.ndarray:
-        return self._plane_1.get_xy_cell()
+        return self._planes[0].get_xy_cell()
 
     def get_xy_positions(self) -> np.ndarray:
-        xy = np.concatenate(
-            [self._plane_1.get_xy_positions(), self._plane_2.get_xy_positions()]
-        )
+        xy = np.concatenate([p.get_xy_positions() for p in self._planes])
         return xy
 
     def get_chemical_symbols(self) -> Sequence[str]:
-        symbols = (
-            *self._plane_1.get_chemical_symbols(),
-            *self._plane_2.get_chemical_symbols(),
+        symbols = tuple(
+            itertools.chain(*(p.get_chemical_symbols() for p in self._planes))
         )
         return symbols
 
     # Overloads:
 
     def with_chemical_symbols(self, symbols: str | Sequence[str]) -> Merge:
-        s1: str | Sequence[str]
-        s2: str | Sequence[str]
         if type(symbols) == str:
-            s1 = s2 = symbols
-        elif isinstance(symbols, Sequence):
-            s1 = symbols[: len(self._plane_1)]
-            s2 = symbols[len(self._plane_1) :]
+            result = Merge(
+                *tuple(p.with_chemical_symbols(symbols) for p in self._planes)
+            )
+        elif isinstance(symbols, Sequence):  # TODO: is list a Sequence?
+            result = Merge(
+                *tuple(
+                    p.with_chemical_symbols(s)  # type: ignore # TODO
+                    for s, p in tools.zip_unchain(symbols, self._planes)
+                )
+            )
         else:
-            raise RuntimeError("In Merge ...!")
-        p1 = self._plane_1.with_chemical_symbols(s1)
-        p2 = self._plane_2.with_chemical_symbols(s2)
-        return Merge(p1, p2)
+            raise RuntimeError(f"{type(symbols)} is not accepted")
+        return result
 
     def repeat(self, repeat) -> Merge:
-        return Merge(self._plane_1.repeat(repeat), self._plane_2.repeat(repeat))
+        return Merge(*tuple(p.repeat(repeat) for p in self._planes))
+
+    def merge(self, *others: AtomicPlane) -> Merge:
+        return Merge(*self._planes, *others)
 
 
 class _PlaneMixin:

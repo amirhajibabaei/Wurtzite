@@ -10,7 +10,7 @@ from ase.calculators.lammps import convert
 from wurtzite.atomic_structure import AtomicStructure
 from wurtzite.lammps.force_field import ForceField
 from wurtzite.lammps.structure import FullStyle
-from wurtzite.pair_potential import pairings
+from wurtzite.tools import pairings
 
 
 def lattice_monte_carlo(
