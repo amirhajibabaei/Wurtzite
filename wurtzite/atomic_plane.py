@@ -55,6 +55,15 @@ class AtomicPlane(abc.ABC):
     def merge(self, *others: AtomicPlane) -> Merge:
         return Merge(self, *others)
 
+    def merge_translation(
+        self, tr: tuple[float, float], symbols: str | Sequence[str] | None = None
+    ) -> AtomicPlane:
+        t = self.translate(tr)
+        if symbols is None:
+            return self.merge(t)
+        else:
+            return self.merge(t.with_chemical_symbols(symbols))
+
     def permute(self, perm: Sequence[int]) -> AtomicPlane:
         symbols = self.get_chemical_symbols()
         new = [symbols[i] for i in perm]
@@ -74,7 +83,7 @@ class AtomicPlane(abc.ABC):
     def count(self) -> Counter:
         return Counter(self.get_chemical_symbols())
 
-    def view(self) -> view.View | None:
+    def view(self):
         return view.view(self)
 
 
@@ -225,6 +234,14 @@ class Translation(_PlaneMixin, AtomicPlane):
 
     def get_xy_positions(self) -> np.ndarray:
         return self._plane.get_xy_positions() + self._tr
+
+    def translate(self, tr: tuple[float, float]) -> Translation:
+        a, b = tr
+        c, d = self._tr
+        return Translation(self._plane, (a + c, b + d))
+
+    def repeat(self, repeat: int | tuple[int, int]) -> Translation:
+        return Translation(self._plane.repeat(repeat), self._tr)
 
 
 def _repeat_tuple(repeat: int | tuple[int, int]) -> tuple[int, int]:

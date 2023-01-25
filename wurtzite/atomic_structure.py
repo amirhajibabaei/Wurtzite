@@ -57,7 +57,7 @@ class AtomicStructure(abc.ABC):
     def get_volume(self) -> float:
         return abs(np.linalg.det(self.get_cell()))
 
-    def view(self) -> view.View | None:
+    def view(self):
         return view.view(self)
 
 
