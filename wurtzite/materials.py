@@ -34,3 +34,15 @@ def AgI_wurtzite0001(
         stack = stack.with_spacing(-1, vacuum)
 
     return stack
+
+
+def AgI_wurtzite0001_re_2x2(nz: int, *, vacancy: str = "X", **kwargs) -> PlaneStacking:
+    """
+    Returns a (2, 2, nz) slab with 1/4 of atoms replaced
+    with vacancy on the two Ag-/I-terminated surfaces.
+    """
+    ideal = AgI_wurtzite0001((2, 2, nz), **kwargs)
+    re_1st = ideal[0].with_chemical_symbols(f"Ag Ag Ag {vacancy}".split())
+    re_last = ideal[-1].with_chemical_symbols(f"I I I {vacancy}".split())
+    re = ideal.with_plane(0, re_1st).with_plane(-1, re_last)
+    return re

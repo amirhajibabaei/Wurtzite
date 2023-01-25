@@ -24,4 +24,4 @@ def view(struc) -> View | None:
     if visard is None:
         return None
     else:
-        return visard.trajectory(struc.to_ase_atoms())
+        return visard.trajectory(struc.to_ase_atoms(), axes=True)
