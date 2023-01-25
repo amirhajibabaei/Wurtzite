@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import abc
+import ctypes
 from typing import Sequence
 
 import numpy as np
@@ -17,6 +18,7 @@ from wurtzite.lammps.force_field import ForceField
 class LAMMPS(DynamicStructure):
     _default_units = "real"
     _lmp: lammps
+    _groups = 0
 
     @abc.abstractmethod
     def get_units(self) -> str:
@@ -37,6 +39,39 @@ class LAMMPS(DynamicStructure):
         e = self._lmp.get_thermo("pe")
         e = convert(e, "energy", self.get_units(), units)
         return e
+
+    def get_type(self, symbol: str) -> int:
+        return self.get_types()[symbol]
+
+    def define_group(self, range: tuple[int, int], id: str | None = None) -> str:
+        a, b = range
+        if id is None:
+            self._groups += 1
+            id = f"g{self._groups}"
+        cmd = f"group {id} id {a+1}:{b}"
+        self._lmp.command(cmd)
+        return id
+
+    def gather(self, quantity, indices=None):
+
+        if indices is None:
+            subset = None
+        else:
+            _id = [i + 1 for i in indices]  # LAMMPS convention
+            n = len(_id)
+            subset = (ctypes.c_int * n)(*_id)
+
+        if quantity in ("symbol", "symbols"):
+            if subset is None:
+                types = self._lmp.gather_atoms("type", 0, 1)
+            else:
+                types = self._lmp.gather_atoms_subset("type", 0, 1, n, subset)
+            mapping = {t: s for s, t in self.get_types().items()}
+            result = [mapping[t] for t in np.ctypeslib.as_array(types)]
+        else:
+            raise RuntimeError
+
+        return result
 
 
 class FullStyle(LAMMPS):
