@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import abc
 import ctypes
+import functools
 from typing import Sequence
 
 import numpy as np
@@ -55,17 +56,17 @@ class LAMMPS(DynamicStructure):
     def gather(self, quantity, indices=None):
 
         if indices is None:
-            subset = None
+            _gather = self._lmp.gather_atoms
         else:
             _id = [i + 1 for i in indices]  # LAMMPS convention
             n = len(_id)
             subset = (ctypes.c_int * n)(*_id)
+            _gather = functools.partial(
+                self._lmp.gather_atoms_subset, ndata=n, ids=subset
+            )
 
         if quantity in ("symbol", "symbols"):
-            if subset is None:
-                types = self._lmp.gather_atoms("type", 0, 1)
-            else:
-                types = self._lmp.gather_atoms_subset("type", 0, 1, n, subset)
+            types = _gather("type", 0, 1)
             mapping = {t: s for s, t in self.get_types().items()}
             result = [mapping[t] for t in np.ctypeslib.as_array(types)]
         else:
