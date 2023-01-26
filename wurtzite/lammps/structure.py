@@ -68,9 +68,13 @@ class LAMMPS(DynamicStructure):
         if quantity in ("symbol", "symbols"):
             types = _gather("type", 0, 1)
             mapping = {t: s for s, t in self.get_types().items()}
-            result = [mapping[t] for t in np.ctypeslib.as_array(types)]
+            result = tuple(mapping[t] for t in np.ctypeslib.as_array(types))
         else:
             raise RuntimeError
+
+        # TODO:
+        # charge: ("q", 1, 1)
+        # positions: ("x", 1, 3)
 
         return result
 
