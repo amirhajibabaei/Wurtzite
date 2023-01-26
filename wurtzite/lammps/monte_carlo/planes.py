@@ -21,13 +21,16 @@ def plane_monte_carlo(
     steps: int,
     temp: float,
     every: int = 1,
-    attempts: int = 1,
-    random_state: int | np.random.RandomState = 53454545,
+    attempts: int | None = None,
+    random_state: int | np.random.RandomState = 20230126,
+    log: str | None = None,
 ) -> tuple[float, tuple[tuple[str, ...]], dict[str, float]]:
     """
     Lattice Monte Carlo for a "PlaneStacking" with swaps limited
     to pair of atoms are which belong to the same plane.
     The planes which are not listed in "active_planes" are frozen.
+
+    if attempts = None -> attempts = min(count[a], count[b]) (= 1 sweep)
 
     """
 
@@ -46,16 +49,18 @@ def plane_monte_carlo(
     for plane in active_planes:
         index_range = stack.index_range(plane)
         group = struc.define_group(index_range)
-        symbols = stack[plane].count().keys()
+        count = stack[plane].count()
+        symbols = count.keys()
         pairs = tools.pairings(symbols, self_interaction=False)
         for a, b in pairs:
+            X = min(count[a], count[b]) if attempts is None else attempts
             t1 = struc.get_type(a)
             t2 = struc.get_type(b)
             fid = f"swap_{plane}_{a}_{b}"
             seed = rng.randint(2**16 - 1)
             cmd = (
                 f"fix {fid} {group} atom/swap "
-                f"{every} {attempts} {seed} {temp} "
+                f"{every} {X} {seed} {temp} "
                 f"types {t1} {t2} ke no semi-grand no "
             )
             struc._lmp.command(cmd)  # TODO: no _lmp!
@@ -73,6 +78,10 @@ def plane_monte_carlo(
         if e < optim.energy:
             optim.energy = e
             optim.symbols = gather_symbos()
+            if log is not None and struc._lmp.get_mpi_comm().rank == 0:
+                _step = struc._lmp.extract_global("ntimestep")
+                with open(log, "a") as of:
+                    of.write(f"\n{_step} energy = {e} \n{optim.symbols}\n")
 
     @dataclass
     class State:
