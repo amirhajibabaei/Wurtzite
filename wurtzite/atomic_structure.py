@@ -171,6 +171,9 @@ class PlaneStacking(AtomicStructure):
     def __getitem__(self, index: int) -> AtomicPlane:
         return self.get_planes()[index]
 
+    def slice(self, i: int, j: int) -> PlaneStacking:
+        return GenericStacking(self.get_planes()[i:j], self.get_spacings()[i:j])
+
 
 class _StackingMixin:
     _planes: Sequence[AtomicPlane]

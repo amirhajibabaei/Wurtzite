@@ -1,8 +1,11 @@
 # +
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Sequence
 
 import lammps.constants as const
+import numpy as np
 from ase.calculators.lammps import convert
 
 import wurtzite.tools as tools
@@ -19,7 +22,7 @@ def plane_monte_carlo(
     temp: float,
     every: int = 1,
     attempts: int = 1,
-    seed: int = 53454545,
+    random_state: int | np.random.RandomState = 53454545,
 ) -> tuple[float, tuple[tuple[str, ...]], dict[str, float]]:
     """
     Lattice Monte Carlo for a "PlaneStacking" with swaps limited
@@ -34,6 +37,11 @@ def plane_monte_carlo(
         ["thermo_style custom step pe", "thermo 1", "run 0"]
     )
 
+    if type(random_state) == int:
+        rng = np.random.RandomState(random_state)
+    else:
+        rng = random_state
+
     swap_fixes = []
     for plane in active_planes:
         index_range = stack.index_range(plane)
@@ -44,6 +52,7 @@ def plane_monte_carlo(
             t1 = struc.get_type(a)
             t2 = struc.get_type(b)
             fid = f"swap_{plane}_{a}_{b}"
+            seed = rng.randint(2**16 - 1)
             cmd = (
                 f"fix {fid} {group} atom/swap "
                 f"{every} {attempts} {seed} {temp} "

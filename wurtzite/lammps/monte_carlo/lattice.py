@@ -21,7 +21,7 @@ def lattice_monte_carlo(
     *,
     pairs: tuple[tuple[str, str], ...] | None = None,
     index_range: tuple[int, int] | None = None,
-    random_seed: int = 57465456,
+    random_seed: int = 57465456,  # TODO: use random state
     every: int = 1,
     attempts: int = 1,
 ) -> tuple[dict[tuple[str, str], float], float, tuple[str, ...]]:
