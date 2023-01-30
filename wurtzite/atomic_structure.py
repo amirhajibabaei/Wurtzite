@@ -143,6 +143,17 @@ class PlaneStacking(AtomicStructure):
         b = self.get_plane(j)
         return self.with_plane(i, b).with_plane(j, a)
 
+    def with_plane_symbols(self, i: int, symbols: str | Sequence[str]) -> PlaneStacking:
+        return self.with_plane(i, self.get_plane(i).with_chemical_symbols(symbols))
+
+    def with_planes_symbols(
+        self, i: Sequence[int], symbols: Sequence[str | Sequence[str]]
+    ) -> PlaneStacking:
+        tmp = self
+        for j, s in zip(i, symbols):
+            tmp = tmp.with_plane_symbols(j, s)
+        return tmp
+
     def _get_z(self) -> list[float]:
         z = [0.0]
         for delta in self.get_spacings():
