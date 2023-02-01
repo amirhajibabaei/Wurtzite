@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 import abc
-import os
 from typing import Sequence
 
 from ase.calculators.lammps import convert
 
 from wurtzite.lammps.table_io import write_lammps_table
-from wurtzite.mpi import world
 from wurtzite.pair_potential import PairPotential
 from wurtzite.tools import pairings
 
@@ -64,32 +62,26 @@ class CoulTableHybrid(ForceField):
         charges: dict[str, float],
         kspace_style: str | None = "pppm 1e-4",
         table_dr: float = 0.01,
-        table_name: str = "_pair.table",
         table_shift: bool = True,
         table_units: str = "real",
     ):
 
         # write pairpots to table
-        N, keys = write_lammps_table(
+        name, N, keys = write_lammps_table(
             pairpots,
             table_units,
-            table_name,
             rmax=cutoff * 1.5,
             dr=table_dr,
             cutoff=cutoff,
             shift=table_shift,
         )
 
-        self._table_name = table_name
+        self._table_name = name
         self._table_N = N
         self._table_keys = keys
         self._cutoff = cutoff
         self._charges = charges
         self._kspace = kspace_style
-
-    def __del__(self):
-        if world.Get_rank() == 0 and os.path.isfile(self._table_name):
-            os.system(f"rm -f {self._table_name}")
 
     def get_pair_style(self, units: str) -> str:
         cutoff = convert(self._cutoff, "distance", "ASE", units)

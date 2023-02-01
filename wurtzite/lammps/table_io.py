@@ -1,7 +1,7 @@
 # +
 from __future__ import annotations
 
-from io import StringIO
+import io
 
 import numpy as np
 from ase.calculators.lammps import convert
@@ -13,13 +13,13 @@ from wurtzite.pair_potential import PairPotential
 def write_lammps_table(
     pairpots: dict[tuple[str, str], PairPotential],
     units: str,
-    file: str,
+    file: str | io.TextIOWrapper | None = None,
     rmin: float = 0.1,
     rmax: float = 10.0,
     dr: float = 0.01,
     cutoff: float | None = None,
     shift: bool = True,
-) -> tuple[int, dict[tuple[str, str], str]]:
+) -> tuple[str, int, dict[tuple[str, str], str]]:
     """
     A function for writing tabular potentials to be used with
     "pair_style table" in LAMMPS.
@@ -42,6 +42,8 @@ def write_lammps_table(
             if True, shifts the potentials to become zero at cutoff
 
     Returns:
+        name:
+            name of the generated file
         N:
             N values in lookup
         keys:
@@ -50,7 +52,7 @@ def write_lammps_table(
 
     """
 
-    of = StringIO()
+    of = io.StringIO()
 
     # header
     of.write(f"# UNITS: {units}\n")
@@ -88,8 +90,8 @@ def write_lammps_table(
         of.write(f"\nN {N}\n\n")
         np.savetxt(of, data, fmt=("%10d", "%.18e", "%.18e", "%.18e"))
 
-    strio_to_file(of, file)
-    return N, keys
+    name = strio_to_file(of, file)
+    return name, N, keys
 
 
 def read_lammps_table(file: str) -> dict[str, np.ndarray]:
@@ -127,7 +129,7 @@ def read_lammps_table(file: str) -> dict[str, np.ndarray]:
         key = tuple(key.split("_"))
         N, n, *_ = head[1].split()
         assert N == "N", "needs generalization!"
-        val = np.loadtxt(StringIO("".join(data)))
+        val = np.loadtxt(io.StringIO("".join(data)))
         assert val.shape[0] == int(n)
         # convert back to ASE
         i, r, e, f = val.T
