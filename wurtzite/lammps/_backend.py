@@ -44,6 +44,19 @@ class lammps(_lammps):
         else:
             return "\n".join(self._history)
 
+    def __del__(self):
+        """
+        TODO:
+
+        Without this dummy function, a segmentation fault occurs
+        when returning from functions which create multiple
+        instances of LAMMPS!
+
+        *** Strange! ***
+
+        """
+        pass
+
 
 def _create_lammps(
     positions: np.ndarray,

@@ -8,6 +8,7 @@ from typing import Sequence
 from ase.calculators.lammps import convert
 
 from wurtzite.lammps.table_io import write_lammps_table
+from wurtzite.mpi import world
 from wurtzite.pair_potential import PairPotential
 from wurtzite.tools import pairings
 
@@ -87,7 +88,7 @@ class CoulTableHybrid(ForceField):
         self._kspace = kspace_style
 
     def __del__(self):
-        if os.path.isfile(self._table_name):
+        if world.Get_rank() == 0 and os.path.isfile(self._table_name):
             os.system(f"rm -f {self._table_name}")
 
     def get_pair_style(self, units: str) -> str:

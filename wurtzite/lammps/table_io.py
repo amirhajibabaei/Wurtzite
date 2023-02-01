@@ -6,6 +6,7 @@ from io import StringIO
 import numpy as np
 from ase.calculators.lammps import convert
 
+from wurtzite.mpi import strio_to_file
 from wurtzite.pair_potential import PairPotential
 
 
@@ -49,44 +50,45 @@ def write_lammps_table(
 
     """
 
-    with open(file, "w") as of:
+    of = StringIO()
 
-        # header
-        of.write(f"# UNITS: {units}\n")
+    # header
+    of.write(f"# UNITS: {units}\n")
 
-        keys = {}
-        for pair, pot in pairpots.items():
-            # r, e, f
-            r = np.arange(rmin, rmax + 1e-8, dr)
-            e, f = pot.energy_and_force(r)
+    keys = {}
+    for pair, pot in pairpots.items():
+        # r, e, f
+        r = np.arange(rmin, rmax + 1e-8, dr)
+        e, f = pot.energy_and_force(r)
 
-            c = -1
-            if cutoff is not None:
-                c = np.argmin(abs(r - cutoff))
+        c = -1
+        if cutoff is not None:
+            c = np.argmin(abs(r - cutoff))
 
-            if shift:
-                e -= e[c]
-                f -= f[c]
+        if shift:
+            e -= e[c]
+            f -= f[c]
 
-            if cutoff is not None:
-                e[c:] = 0
-                f[c:] = 0
+        if cutoff is not None:
+            e[c:] = 0
+            f[c:] = 0
 
-            # data
-            r = convert(r, "distance", "ASE", units)
-            e = convert(e, "energy", "ASE", units)
-            f = convert(f, "force", "ASE", units)
-            N = r.shape[0]
-            i = np.arange(1, N + 1)
-            data = np.c_[i, r, e, f]
+        # data
+        r = convert(r, "distance", "ASE", units)
+        e = convert(e, "energy", "ASE", units)
+        f = convert(f, "force", "ASE", units)
+        N = r.shape[0]
+        i = np.arange(1, N + 1)
+        data = np.c_[i, r, e, f]
 
-            # write
-            key = "_".join(pair)
-            keys[pair] = key
-            of.write(f"\n{key}")
-            of.write(f"\nN {N}\n\n")
-            np.savetxt(of, data, fmt=("%10d", "%.18e", "%.18e", "%.18e"))
+        # write
+        key = "_".join(pair)
+        keys[pair] = key
+        of.write(f"\n{key}")
+        of.write(f"\nN {N}\n\n")
+        np.savetxt(of, data, fmt=("%10d", "%.18e", "%.18e", "%.18e"))
 
+    strio_to_file(of, file)
     return N, keys
 
 

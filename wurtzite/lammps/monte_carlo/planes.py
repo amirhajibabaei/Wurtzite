@@ -12,6 +12,7 @@ import wurtzite.tools as tools
 from wurtzite.atomic_structure import PlaneStacking
 from wurtzite.lammps.force_field import ForceField
 from wurtzite.lammps.structure import FullStyle
+from wurtzite.mpi import world
 
 
 def plane_monte_carlo(
@@ -83,7 +84,7 @@ def plane_monte_carlo(
         if e < optim.energy:
             optim.energy = e
             optim.symbols = gather_symbols()
-            if log is not None and struc._lmp.get_mpi_comm().rank == 0:
+            if log is not None and world.Get_rank() == 0:
                 _step = struc._lmp.extract_global("ntimestep")
                 with open(log, "a") as of:
                     of.write(f"\n{_step} energy = {e} \n{optim.symbols}\n")
