@@ -5,7 +5,7 @@ import itertools
 from typing import Any, Iterable, Sequence, Sized
 
 import numpy as np
-from np.random import RandomState
+from numpy.random import RandomState
 
 
 def pairings(keys: Iterable[str], self_interaction=True) -> tuple[tuple[str, str], ...]:
