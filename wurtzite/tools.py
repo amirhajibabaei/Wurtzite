@@ -1,8 +1,11 @@
 # +
+from __future__ import annotations
+
 import itertools
 from typing import Any, Iterable, Sequence, Sized
 
 import numpy as np
+from np.random import RandomState
 
 
 def pairings(keys: Iterable[str], self_interaction=True) -> tuple[tuple[str, str], ...]:
@@ -47,6 +50,16 @@ def zip_unchain(
 
     """
     return tuple(zip(unchain(chained, ref), ref))
+
+
+def get_random_state(state: int | RandomState) -> RandomState:
+    if isinstance(state, int):
+        random_state = RandomState(state)
+    elif isinstance(state, RandomState):
+        random_state = state
+    else:
+        raise RuntimeError
+    return random_state
 
 
 def test_unchain() -> bool:
