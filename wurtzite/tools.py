@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import itertools
+from math import exp, log
 from typing import Any, Iterable, Sequence, Sized
 
 import numpy as np
@@ -52,6 +53,13 @@ def zip_unchain(
     return tuple(zip(unchain(chained, ref), ref))
 
 
+def test_unchain() -> bool:
+    chain = "A B C D E F G".split()
+    ref = ((1, 2), (3, 4), (5, 6, 7))
+    assert unchain(chain, ref) == (("A", "B"), ("C", "D"), ("E", "F", "G"))
+    return True
+
+
 def get_random_state(state: int | RandomState) -> RandomState:
     if isinstance(state, int):
         random_state = RandomState(state)
@@ -62,8 +70,10 @@ def get_random_state(state: int | RandomState) -> RandomState:
     return random_state
 
 
-def test_unchain() -> bool:
-    chain = "A B C D E F G".split()
-    ref = ((1, 2), (3, 4), (5, 6, 7))
-    assert unchain(chain, ref) == (("A", "B"), ("C", "D"), ("E", "F", "G"))
-    return True
+def expit(x: float) -> float:
+    return 1 / (1 + exp(-x))
+
+
+def logit(y: float, eps: float = 1e-8) -> float:
+    assert y <= 1.0
+    return log(y / (1 - y + eps))
