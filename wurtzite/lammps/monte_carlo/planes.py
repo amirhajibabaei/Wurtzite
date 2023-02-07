@@ -46,10 +46,7 @@ def plane_monte_carlo(
         ["thermo_style custom step pe", "thermo 1", "run 0"]
     )
 
-    if callable(random_state):
-        rng = random_state
-    else:
-        rng = np.random.RandomState(random_state)
+    rng = tools.get_random_state(random_state)
 
     swap_fixes = []
     for plane in active_planes:
