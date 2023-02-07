@@ -24,10 +24,13 @@ class GeneticAlgorithm:
 
     1) A local minimizer with the following signature:
 
-        def minimization(x: Any) -> Any, float:
+        def minimization(x: Any, rng: RandomState) -> Any, float:
             ...
             return x_min, y_min
 
+       A random state "rng" is given which should be
+       used for drawing random numbers (if needed).
+       Global rng is required for mpi/parallel simulations.
 
     2) A perturbation function for a random displacements
        of local minima where the degree of perturbation,
@@ -38,11 +41,11 @@ class GeneticAlgorithm:
        Also when degree -> 0 close enough, a perturbation
        followed by a local minimization should reach the
        same point.
-       A random state is also given which should be used
-       for drawing random numbers.
+       A random state "rng" is also given which should be
+       used for drawing random numbers.
        The function signature is:
 
-        def perturbation(x: Any, degree: float, state: RandomState) -> Any:
+        def perturbation(x: Any, degree: float, rng: RandomState) -> Any:
             ...
             return x_rand
 
@@ -57,7 +60,7 @@ class GeneticAlgorithm:
 
     def __init__(
         self,
-        minimization: Callable[[Any], tuple[Any, float]],
+        minimization: Callable[[Any, RandomState], tuple[Any, float]],
         perturbation: Callable[[Any, float, RandomState], Any],
         similarity: Callable[[Any, Any], bool],
         *,
@@ -79,7 +82,7 @@ class GeneticAlgorithm:
             if isinstance(x, Point):
                 return x
             else:
-                xmin, ymin = self._minimization(x)
+                xmin, ymin = self._minimization(x, self._rand)
                 return Point(xmin, ymin)
 
         # population:
@@ -90,7 +93,7 @@ class GeneticAlgorithm:
             parents.append(p)
             for _ in range(self._birthrate):
                 _qx = self._perturbation(p.x, degree, self._rand)
-                qx, qy = self._minimization(_qx)
+                qx, qy = self._minimization(_qx, self._rand)
                 q = Point(qx, qy)
                 if not self._similarity(q.x, p.x):
                     children.append(q)
@@ -173,7 +176,7 @@ def test_GeneticAlgorithm() -> bool:
         y = A * n + (x**2 - A * np.cos(2 * np.pi * x)).sum()
         return y
 
-    def minimization(x: np.ndarray) -> tuple[np.ndarray, float]:
+    def minimization(x: np.ndarray, rng: RandomState) -> tuple[np.ndarray, float]:
         res = minimize(objective, x)
         return res.x, res.fun
 
