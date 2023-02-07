@@ -150,11 +150,10 @@ class GeneticAlgorithm:
 
             if beta > 0:
                 stalled = 0
-                continue
-
-            # count as stall only if alpha > 0
-            if alpha > 0:
-                stalled += 1
+            else:
+                # count as stall only if alpha > 0
+                if alpha > 0:
+                    stalled += 1
 
             yield sample, degree
 
