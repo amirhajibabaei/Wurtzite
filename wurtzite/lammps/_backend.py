@@ -46,16 +46,12 @@ class lammps(_lammps):
 
     def __del__(self):
         """
-        TODO:
-
-        Without this dummy function, a segmentation fault occurs
-        when returning from functions which create multiple
-        instances of LAMMPS!
-
-        *** Strange! ***
-
+        The "super" explicitly closes the lammps instance
+        in the c namespace and frees the memory.
+        Otherwise, just by deleting the python instance,
+        the memory will not be released.
         """
-        pass
+        super().__del__()
 
 
 def _create_lammps(
