@@ -23,7 +23,7 @@ class PairPotential(abc.ABC):
         ...
 
 
-class ZeroPot(abc.ABC):
+class ZeroPot(PairPotential):
     def energy_and_force(self, r: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         return np.zeros_like(r), np.zeros_like(r)
 

@@ -86,6 +86,17 @@ class AtomicPlane(abc.ABC):
     def view(self):
         return view.view(self)
 
+    def __eq__(self, other: object) -> bool:
+        if (
+            isinstance(other, AtomicPlane)
+            and self.get_chemical_symbols() == other.get_chemical_symbols()
+            and (self.get_xy_positions() == other.get_xy_positions()).all()
+            and (self.get_xy_cell() == other.get_xy_cell()).all()
+        ):
+            return True
+        else:
+            return False
+
 
 class GenericPlane(AtomicPlane):
     def __init__(
