@@ -83,6 +83,8 @@ DynamicStructure.register(Atoms)
 
 class PlaneStacking(AtomicStructure):
 
+    centering: bool = False
+
     # From parents:
 
     def get_pbc(self) -> tuple[bool, bool, bool]:
@@ -154,9 +156,16 @@ class PlaneStacking(AtomicStructure):
             tmp = tmp.with_plane_symbols(j, s)
         return tmp
 
+    def with_vacuum(self, vacuum: float) -> PlaneStacking:
+        return self.with_spacing(-1, vacuum)
+
     def _get_z(self) -> list[float]:
-        z = [0.0]
-        for delta in self.get_spacings():
+        spacings = self.get_spacings()
+        if self.centering:
+            z = [spacings[-1] / 2]
+        else:
+            z = [0.0]
+        for delta in spacings[:-1]:
             z.append(z[-1] + delta)
         return z
 
