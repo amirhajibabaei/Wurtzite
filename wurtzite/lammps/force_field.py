@@ -64,6 +64,7 @@ class CoulTableHybrid(ForceField):
         table_dr: float = 0.01,
         table_shift: bool = True,
         table_units: str = "real",
+        pair_write: str | None = None,
     ):
 
         # write pairpots to table
@@ -82,6 +83,7 @@ class CoulTableHybrid(ForceField):
         self._cutoff = cutoff
         self._charges = charges
         self._kspace = kspace_style
+        self._pair_write = pair_write
 
     def get_pair_style(self, units: str) -> str:
         cutoff = convert(self._cutoff, "distance", "ASE", units)
@@ -92,7 +94,7 @@ class CoulTableHybrid(ForceField):
     def get_pair_coeff(self, units: str, types: dict[str, int]) -> Sequence[str]:
         cutoff = convert(self._cutoff, "distance", "ASE", units)
         commands = []
-
+        _pair_write = []
         for a, b in pairings(types):
             t1 = types[a]
             t2 = types[b]
@@ -107,9 +109,17 @@ class CoulTableHybrid(ForceField):
                 f"pair_coeff {t1} {t2} table {self._table_name} {key} {cutoff}"
             )
             commands.append(f"pair_coeff {t1} {t2} coul/long")
+            _pair_write.append(
+                f"pair_write {t1} {t2} {self._table_N} "
+                f"r {0.1} {cutoff} _table.txt {key} "
+                # f"{self._charges[a]} {self._charges[b]}"
+                f"0 0"
+            )
 
         commands.extend(self._set(units, types, "charge", self._charges))
 
         if self._kspace is not None:
             commands.append(f"kspace_style {self._kspace}")
+        if self._pair_write is not None:
+            commands.extend(_pair_write)
         return commands

@@ -10,6 +10,7 @@ from ase.data import atomic_masses, atomic_numbers
 from ase.geometry import wrap_positions
 from lammps import lammps as _lammps
 
+import wurtzite.lammps.cfg as cfg
 from wurtzite.rotations import PrismRotation
 
 
@@ -72,7 +73,11 @@ def _create_lammps(
     types = {symbol: index + 1 for index, symbol in enumerate(np.unique(symbols))}
 
     # create the LAMMPS object
-    lmp = lammps(cmdargs=f"-log {log} -screen {screen}".split())
+    if cfg.verbose:
+        cmdargs = None
+    else:
+        cmdargs = f"-log {log} -screen {screen}".split()
+    lmp = lammps(cmdargs=cmdargs)
     lmp.commands_list(
         [
             f"units {units}",  # units

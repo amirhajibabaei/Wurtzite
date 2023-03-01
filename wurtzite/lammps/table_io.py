@@ -40,6 +40,7 @@ def write_lammps_table(
             up to rmax.
         shift:
             if True, shifts the potentials to become zero at cutoff
+            if cutoff is None, shift is irrelevant
 
     Returns:
         name:
@@ -63,15 +64,11 @@ def write_lammps_table(
         r = np.arange(rmin, rmax + 1e-8, dr)
         e, f = pot.energy_and_force(r)
 
-        c = -1
         if cutoff is not None:
+            assert cutoff <= rmax
             c = np.argmin(abs(r - cutoff))
-
-        if shift:
-            e -= e[c]
-            f -= f[c]
-
-        if cutoff is not None:
+            if shift:
+                e -= e[c]
             e[c:] = 0
             f[c:] = 0
 
@@ -91,6 +88,8 @@ def write_lammps_table(
         np.savetxt(of, data, fmt=("%10d", "%.18e", "%.18e", "%.18e"))
 
     name = strio_to_file(of, file)
+    of.close()
+
     return name, N, keys
 
 
@@ -151,7 +150,8 @@ def read_lammps_table(file: str) -> dict[str, np.ndarray]:
         header, sections = _get_header_sections(blocks)
         for h in header:
             if "UNITS:" in h:
-                units = h.split()[-1]
+                _h = h.split()
+                units = _h[_h.index("UNITS:") + 1]
         out = _read_sections(sections, units)
         return out
 
