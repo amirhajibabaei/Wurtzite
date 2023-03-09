@@ -16,15 +16,23 @@ class Dynamics(abc.ABC):
 
 
 class NVT(Dynamics):
-    def __init__(self, dt_fs: float, temp: float, tdamp_fs: int):
+    def __init__(self, dt_fs: float, temp: float, tdamp: int):
+        """
+        dt_fs:
+            timestep in femtoseconds
+        temp:
+            temperature in Kelvin
+        tdamp:
+            tdamp in number of steps (LAMMPS recommends ~100)
+        """
         self._dt = dt_fs
         self._temp = temp
-        self._tdamp = tdamp_fs
+        self._tdamp = tdamp
 
     def get_commands(self, group: str) -> list[str]:
         # TODO: for generalization, dt needs conversion!
         fix_id = "nvt_md"
-        temp = f"temp {self._temp} {self._temp} $({self._tdamp}/dt)"
+        temp = f"temp {self._temp} {self._temp} $({self._tdamp}*dt)"
         cmd = [
             f"timestep {self._dt}",
             f"compute {group}_temp {group} temp",
