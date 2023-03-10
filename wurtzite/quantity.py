@@ -71,7 +71,7 @@ class Quantity(abc.ABC):
 class Time(Quantity):
     """
     Defined units:
-        fs: femtosecond
+        fs: femtosecond (default)
         ps: picosecond
         ns: nanosecond
         s:  second
@@ -90,11 +90,40 @@ class Time(Quantity):
 
     @property
     def ase_unit(self) -> float:
+        # TODO: assumes that LAMMPS real unit for
+        # time is 1 fs.
         return convert(1, "time", "real", "ASE")
 
     @property
     def derived_units(self) -> dict[str, float]:
         return {"ps": 1e3, "ns": 1e6, "s": 1e15}
+
+
+class Distance(Quantity):
+    """
+    Defined units:
+        A:  Angstrom (default)
+        nm: nanometer
+
+    Other unit systems:
+        ase
+        lammps_real
+        lammps_metal
+        etc.
+
+    """
+
+    @property
+    def default_unit(self) -> str:
+        return "A"
+
+    @property
+    def ase_unit(self) -> float:
+        return 1.0
+
+    @property
+    def derived_units(self) -> dict[str, float]:
+        return {"nm": 10.0}
 
 
 def test_Time() -> bool:
